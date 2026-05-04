@@ -12,21 +12,31 @@
                     <field name="state" widget="statusbar"/>
                 </header>
                 <sheet>
-                    <group col="1" string="Job Card Details">
-                        <label for="name" string="Job Card Number"/>
-                        <field name="name" nolabel="1" readonly="1"/>
-                        <label for="estimate_id" string="Estimate Reference"/>
-                        <field name="estimate_id" nolabel="1" readonly="1"/>
-                        <label for="customer_id" string="Customer"/>
-                        <field name="customer_id" nolabel="1"/>
-                        <label for="vehicle_id" string="Vehicle"/>
-                        <field name="vehicle_id" nolabel="1"/>
-                        <label for="vehicle_name" string="Vehicle Name"/>
-                        <field name="vehicle_name" nolabel="1" readonly="1"/>
-                        <label for="vehicle_model" string="Vehicle Model"/>
-                        <field name="vehicle_model" nolabel="1" readonly="1"/>
-                        <label for="analytic_account_id" string="Analytic Account"/>
-                        <field name="analytic_account_id" nolabel="1"/>
+                    <group col="2">
+                        <group string="Job Card Details" col="1">
+                            <label for="name" string=""/>
+                            <label for="name" string="Job Card Number"/>
+                            <field name="name" nolabel="1" readonly="1"/>
+                            <label for="estimate_id" string="Estimate Reference"/>
+                            <field name="estimate_id" nolabel="1" readonly="1"/>
+                            <label for="customer_id" string="Customer"/>
+                            <field name="customer_id" nolabel="1"/>
+                            <label for="vehicle_id" string="Vehicle"/>
+                            <field name="vehicle_id" nolabel="1"/>
+                            <label for="vehicle_name" string="Vehicle Name"/>
+                            <field name="vehicle_name" nolabel="1" readonly="1"/>
+                            <label for="vehicle_model" string="Vehicle Model"/>
+                            <field name="vehicle_model" nolabel="1" readonly="1"/>
+                            <label for="analytic_account_id" string="Analytic Account"/>
+                            <field name="analytic_account_id" nolabel="1"/>
+                        </group>
+                        <group string="Additional Details" col="1">
+                            <label for="name" string=""/>
+                            <field name="second_customer_id"/>
+                            <field name="excess_percentage"/>
+                            <field name="insurance_percentage" readonly="1"/>
+                            <field name="total_amount" readonly="1"/>
+                        </group>
                     </group>
                     <notebook>
                         <page string="Order Lines" name="order_lines">
@@ -51,14 +61,6 @@
                                 </list>
                             </field>
                         </page>
-                        <page string="Other Info" name="other_info">
-                            <group col="1">
-                                <field name="second_customer_id"/>
-                                <field name="excess_value"/>
-                                <field name="insurance_percentage" readonly="1"/>
-                                <field name="total_amount" readonly="1"/>
-                            </group>
-                        </page>
                     </notebook>
                 </sheet>
             </form>
@@ -73,7 +75,7 @@
                 <field name="name"/>
                 <field name="customer_id"/>
                 <field name="vehicle_id"/>
-                <field name="state"/>
+                <field name="state" widget="badge" decoration-muted="state == 'draft'" decoration-info="state == 'approved'" decoration-warning="state == 'in_progress'" decoration-success="state == 'completed'"/>
             </list>
         </field>
     </record>

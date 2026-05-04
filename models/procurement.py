@@ -60,6 +60,7 @@ class Procurement(models.Model):
         self.state = 'purchase_order_created'
 
     def action_create_grv(self):
+        # Update receipt statuses
         for line in self.procurement_lines:
             if line.type == 'purchase_order' and line.purchase_order_created:
                 # Check stock moves for this product from linked POs
@@ -77,6 +78,20 @@ class Procurement(models.Model):
                     line.receipt_status = 'partial'
                 else:
                     line.receipt_status = 'open'
+        
+        # Open GRV (Goods Receipt Vouchers) - stock pickings for incoming
+        purchase_orders = self.env['purchase.order'].search([('origin', '=', self.name)])
+        picking_ids = purchase_orders.mapped('picking_ids').filtered(lambda p: p.picking_type_code == 'incoming').ids
+        if picking_ids:
+            return {
+                'type': 'ir.actions.act_window',
+                'name': 'Goods Receipt Vouchers',
+                'res_model': 'stock.picking',
+                'view_mode': 'list,form',
+                'domain': [('id', 'in', picking_ids)],
+            }
+        else:
+            raise UserError(_('No incoming pickings found for this procurement.'))
 
 class ProcurementLine(models.Model):
     _name = 'procurement.line'

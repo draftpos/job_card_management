@@ -10,8 +10,8 @@ class JobCard(models.Model):
     estimate_id = fields.Many2one('estimate', string='Estimate', required=True)
     customer_id = fields.Many2one('customer', string='First Customer', required=True)  # Changed
     second_customer_id = fields.Many2one('customer', string='Second Customer (Insurance)', help='Added at final stage')  # Changed
-    excess_value = fields.Float(string='Excess Value (Paid by First Customer)')
-    insurance_percentage = fields.Float(string='Insurance Percentage', compute='_compute_insurance_pct', store=True)
+    excess_percentage = fields.Float(string='Excess (%)', help='Percentage paid by first customer')
+    insurance_percentage = fields.Float(string='Insurance Percentage (%)', compute='_compute_insurance_pct', store=True)
     vehicle_id = fields.Many2one('vehicle', string='Vehicle', required=True)  # Changed
     vehicle_name = fields.Char(related='vehicle_id.name', string='Vehicle Name', readonly=True)
     vehicle_model = fields.Char(related='vehicle_id.model', string='Vehicle Model', readonly=True)
@@ -26,13 +26,10 @@ class JobCard(models.Model):
     ], default='draft')
     total_amount = fields.Float(string='Total Amount', compute='_compute_total', store=True)
 
-    @api.depends('excess_value', 'total_amount')
+    @api.depends('excess_percentage')
     def _compute_insurance_pct(self):
         for rec in self:
-            if rec.total_amount and rec.excess_value:
-                rec.insurance_percentage = 100 - ((rec.excess_value / rec.total_amount) * 100)
-            else:
-                rec.insurance_percentage = 0.0
+            rec.insurance_percentage = 100 - rec.excess_percentage if rec.excess_percentage else 0.0
 
     @api.depends('job_card_lines.price_total')
     def _compute_total(self):
@@ -48,6 +45,14 @@ class JobCard(models.Model):
         procurement = self.env['procurement'].create({
             'job_card_id': self.id,
         })
+        # Create procurement lines from job card lines
+        for line in self.job_card_lines.filtered(lambda l: l.product_id and not l.display_type):
+            self.env['procurement.line'].create({
+                'procurement_id': procurement.id,
+                'product_id': line.product_id.id,
+                'quantity': line.quantity,
+                'type': 'purchase_order',  # Assume purchase order for external procurement
+            })
         self.state = 'requisition_started'
         return {
             'type': 'ir.actions.act_window',
@@ -59,6 +64,46 @@ class JobCard(models.Model):
     def action_finalize_job_card(self):
         if not self.second_customer_id:
             raise UserError(_('Please add Insurance Company as Second Customer before finalizing.'))
+        if not self.excess_percentage:
+            raise UserError(_('Please set the Excess percentage.'))
+        
+        # Find income account
+        income_account = self.env['account.account'].search([('account_type', '=', 'income')], limit=1)
+        if not income_account:
+            raise UserError(_('No income account configured. Please set up an income account in Accounting.'))
+        
+        # Create invoice for customer (excess amount)
+        customer_amount = self.total_amount * (self.excess_percentage / 100)
+        if customer_amount > 0 and self.customer_id.partner_id:
+            customer_invoice = self.env['account.move'].create({
+                'move_type': 'out_invoice',
+                'partner_id': self.customer_id.partner_id.id,
+                'invoice_origin': self.name,
+                'invoice_line_ids': [(0, 0, {
+                    'name': 'Job Card Services - Customer Portion',
+                    'quantity': 1,
+                    'price_unit': customer_amount,
+                    'account_id': income_account.id,
+                })],
+            })
+            customer_invoice.action_post()
+        
+        # Create invoice for insurance (insurance portion)
+        insurance_amount = self.total_amount * (self.insurance_percentage / 100)
+        if insurance_amount > 0 and self.second_customer_id.partner_id:
+            insurance_invoice = self.env['account.move'].create({
+                'move_type': 'out_invoice',
+                'partner_id': self.second_customer_id.partner_id.id,
+                'invoice_origin': self.name,
+                'invoice_line_ids': [(0, 0, {
+                    'name': 'Job Card Services - Insurance Portion',
+                    'quantity': 1,
+                    'price_unit': insurance_amount,
+                    'account_id': income_account.id,
+                })],
+            })
+            insurance_invoice.action_post()
+        
         self.state = 'completed'
 
 class JobCardLine(models.Model):
