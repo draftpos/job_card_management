@@ -1,5 +1,147 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+
+    <!-- QWeb Report Template -->
+    <template id="estimates_report">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-call="job_card_management.estimates_report_document"/>
+            </t>
+        </t>
+    </template>
+
+    <template id="estimates_report_document">
+        <t t-call="web.basic_layout">
+            <div class="page">
+                <div class="oe_structure"/>
+                <div class="row mt4 mb4">
+                    <div class="col-6">
+                        <strong>Estimate Number:</strong>
+                        <h3 class="mt0"><span t-field="doc.name"/></h3>
+                    </div>
+                    <div class="col-6 text-end">
+                        <strong>Date:</strong>
+                        <p t-if="doc.create_date" t-field="doc.create_date"/>
+                    </div>
+                </div>
+
+                <div class="row mt4 mb4">
+                    <div class="col-6">
+                        <strong>Customer Information</strong>
+                        <address class="mt0">
+                            <span t-field="doc.customer_id.name"/>
+                        </address>
+                    </div>
+                    <div class="col-6">
+                        <strong>Vehicle Information</strong>
+                        <p class="mt0">
+                            <strong>Vehicle:</strong> <span t-field="doc.vehicle_id.name"/><br/>
+                            <strong>Vehicle Name:</strong> <span t-field="doc.vehicle_name"/><br/>
+                            <strong>Vehicle Model:</strong> <span t-field="doc.vehicle_model"/><br/>
+                            <t t-if="doc.analytic_account_id">
+                                <strong>Analytic Account:</strong> <span t-field="doc.analytic_account_id.name"/>
+                            </t>
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Order Lines Table -->
+                <div class="mt4">
+                    <strong class="mb2">Order Lines</strong>
+                    <table class="table table-sm o_main_table mt0">
+                        <thead>
+                            <tr>
+                                <th class="text-start">Product/Section</th>
+                                <th class="text-end">Quantity</th>
+                                <th class="text-end">UoM</th>
+                                <th class="text-end">Unit Price</th>
+                                <th class="text-end">Discount</th>
+                                <th class="text-end">Subtotal</th>
+                                <th class="text-end">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <t t-set="lines" t-value="doc.estimate_lines"/>
+                            <t t-foreach="lines" t-as="line">
+                                <!-- Section Lines -->
+                                <t t-if="line.display_type == 'line_section'">
+                                    <tr class="o_line_section">
+                                        <td colspan="7">
+                                            <strong t-field="line.name"/>
+                                        </td>
+                                    </tr>
+                                </t>
+                                <!-- Note Lines -->
+                                <t t-elif="line.display_type == 'line_note'">
+                                    <tr class="o_line_note">
+                                        <td colspan="7">
+                                            <em t-field="line.name"/>
+                                        </td>
+                                    </tr>
+                                </t>
+                                <!-- Regular Product Lines -->
+                                <t t-else="">
+                                    <tr>
+                                        <td class="text-start">
+                                            <span t-field="line.product_id.name"/>
+                                            <t t-if="line.name and line.name != line.product_id.name">
+                                                <br/>
+                                                <small class="text-muted" t-field="line.name"/>
+                                            </t>
+                                        </td>
+                                        <td class="text-end">
+                                            <span t-field="line.quantity"/>
+                                        </td>
+                                        <td class="text-end">
+                                            <span t-field="line.product_uom_id.name"/>
+                                        </td>
+                                        <td class="text-end">
+                                            <span t-field="line.unit_price"/>
+                                        </td>
+                                        <td class="text-end">
+                                            <span t-field="line.discount"/><t t-if="line.discount">%</t>
+                                        </td>
+                                        <td class="text-end">
+                                            <span t-field="line.price_subtotal"/>
+                                        </td>
+                                        <td class="text-end">
+                                            <strong>
+                                                <span t-field="line.price_total"/>
+                                            </strong>
+                                        </td>
+                                    </tr>
+                                </t>
+                            </t>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Totals Section -->
+                <div class="row mt4">
+                    <div class="col-9">
+                    </div>
+                    <div class="col-3">
+                        <table class="table table-sm">
+                            <t t-if="doc.amount_untaxed">
+                                <tr>
+                                    <td class="text-start"><strong>Untaxed Amount:</strong></td>
+                                    <td class="text-end"><span t-field="doc.amount_untaxed"/></td>
+                                </tr>
+                            </t>
+                            <tr class="border-top">
+                                <td class="text-start"><strong>Total:</strong></td>
+                                <td class="text-end"><strong><span t-field="doc.amount_total"/></strong></td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="oe_structure"/>
+            </div>
+        </t>
+    </template>
+
+    <!-- Keep your existing UI views exactly as they are -->
     <record id="view_estimate_form" model="ir.ui.view">
         <field name="name">estimate.form</field>
         <field name="model">estimate</field>
@@ -13,6 +155,8 @@
                 </header>
                 <sheet>
                     <group col="1" string="Estimate Details">
+                        <label for="name" string=""/>
+                        <label for="name" string="Estimate"/>
                         <field name="name" nolabel="1"/>
                         <label for="customer_id" string="Customer"/>
                         <field name="customer_id" nolabel="1"/>
@@ -27,10 +171,7 @@
                     </group>
                     <notebook>
                         <page string="Order Lines" name="order_lines">
-                            <field
-                                name="estimate_lines"
-                                nolabel="1"
-                            >
+                            <field name="estimate_lines" widget="section_and_note_one2many" nolabel="1">
                                 <list editable="bottom" string="Estimate Lines">
                                     <control>
                                         <create name="add_product_control" string="Add a product"/>
@@ -43,46 +184,45 @@
                                         name="product_id"
                                         string="Product"
                                         required="not display_type"
-                                        context="{'default_uom_id': product_uom_id}"
-                                        attrs="{'invisible': [('display_type', '!=', False)], 'readonly': [('display_type', '!=', False)]}"/>
+                                        invisible="display_type != False"/>
                                     <field 
                                         name="name"
                                         string="Section/Note"
-                                        attrs="{'invisible': [('display_type', '=', False)]}"/>
+                                        invisible="display_type == False"/>
                                     <field 
                                         name="quantity"
                                         string="Quantity"
-                                        attrs="{'invisible': [('display_type', '!=', False)]}"/>
+                                        invisible="display_type != False"/>
                                     <field 
                                         name="product_uom_id"
                                         string="UoM"
                                         required="not display_type"
-                                        attrs="{'invisible': [('display_type', '!=', False)]}"
+                                        invisible="display_type != False"
                                         groups="uom.group_uom"
                                         width="80px"/>
                                     <field 
                                         name="unit_price"
                                         string="Unit Price"
-                                        attrs="{'invisible': [('display_type', '!=', False)]}"/>
+                                        invisible="display_type != False"/>
                                     <field 
                                         name="tax_ids"
                                         string="Taxes"
                                         widget="many2many_tags"
-                                        attrs="{'invisible': [('display_type', '!=', False)]}"/>
+                                        invisible="display_type != False"/>
                                     <field 
                                         name="discount"
                                         string="Disc.%"
                                         width="60px"
-                                        attrs="{'invisible': [('display_type', '!=', False)]}"/>
+                                        invisible="display_type != False"/>
                                     <field 
                                         name="price_subtotal"
                                         string="Subtotal"
-                                        attrs="{'invisible': [('display_type', '!=', False)]}"
+                                        invisible="display_type != False"
                                         readonly="1"/>
                                     <field 
                                         name="price_total"
                                         string="Amount"
-                                        attrs="{'invisible': [('display_type', '!=', False)]}"
+                                        invisible="display_type != False"
                                         readonly="1"/>
                                 </list>
                             </field>
@@ -131,6 +271,8 @@
                 <field name="name"/>
                 <field name="customer_id"/>
                 <field name="vehicle_name"/>
+                <field name="amount_total"/>
+                <field name="create_uid"/>
                 <field name="state"/>
             </list>
         </field>
@@ -140,5 +282,16 @@
         <field name="name">Estimates</field>
         <field name="res_model">estimate</field>
         <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="action_report_estimate" model="ir.actions.report">
+        <field name="name">Estimate Report PDF</field>
+        <field name="model">estimate</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">job_card_management.estimates_report</field>
+        <field name="report_file">job_card_management.estimates_report</field>
+        <field name="print_report_name">'Estimate Report - %s' % object.name</field>
+        <field name="binding_model_id" ref="job_card_management.model_estimate"/>
+        <field name="binding_type">report</field>
     </record>
 </odoo>

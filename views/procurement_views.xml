@@ -17,12 +17,14 @@
                     <field name="job_card_id"/>
                     <group string="Procurement Lines">
                         <field name="procurement_lines">
-                            <list>
+                            <list editable="bottom">
                                 <field name="product_id"/>
                                 <field name="quantity"/>
                                 <field name="type"/>
-                                <field name="vendor_id" readonly="procurement_id.state != 'approved'" invisible="type == 'internal_transfer'"/>
-                                <field name="receipt_status" readonly="1"/>
+                                <field name="vendor_id" invisible="type == 'internal_transfer'"/>
+                                <field name="receipt_status"/>
+                                <field name="purchase_order_created"/>
+                                <field name="internal_transfer_created"/>
                             </list>
                         </field>
                     </group>
@@ -38,6 +40,8 @@
             <list>
                 <field name="name"/>
                 <field name="job_card_id"/>
+                <field name="total_amount"/>
+                <field name="create_uid"/>
                 <field name="state"/>
             </list>
         </field>

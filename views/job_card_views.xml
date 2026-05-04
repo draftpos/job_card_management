@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+
     <record id="view_job_card_form" model="ir.ui.view">
         <field name="name">job.card.form</field>
         <field name="model">job.card</field>
@@ -8,8 +9,9 @@
                 <header>
                     <button name="action_approve_job_card" string="Approve Job Card" type="object" invisible="state not in ['draft']"/>
                     <button name="action_create_requisition" string="Requisition" type="object" invisible="state not in ['approved']"/>
-                    <button name="action_finalize_job_card" string="Finalize Job Card" type="object" invisible="state not in ['requisition_started']"/>
-                    <field name="state" widget="statusbar"/>
+                    <button name="action_finalize_job_card" string="Finalize Job Card" type="object" invisible="state not in ['in_progress', 'requisition_started']"/>
+                    <button name="%(job_card_management.report_job_card)d" string="Print Job Card" type="action" class="btn-secondary"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,approved,in_progress,delivered" invisible="state == 'requisition_started'"/>
                 </header>
                 <sheet>
                     <group col="2">
@@ -40,7 +42,7 @@
                     </group>
                     <notebook>
                         <page string="Order Lines" name="order_lines">
-                            <field name="job_card_lines" nolabel="1">
+                            <field name="job_card_lines" widget="section_and_note_one2many" nolabel="1">
                                 <list editable="bottom" string="Job Card Lines">
                                     <control>
                                         <create name="add_product_control" string="Add a product"/>
@@ -49,15 +51,15 @@
                                     </control>
                                     <field name="display_type" column_invisible="True"/>
                                     <field name="sequence" widget="handle"/>
-                                    <field name="product_id" string="Product" required="not display_type" context="{'default_uom_id': product_uom_id}" attrs="{'invisible': [('display_type', '!=', False)]}"/>
-                                    <field name="name" string="Section / Note" attrs="{'invisible': [('display_type', '=', False)]}"/>
-                                    <field name="quantity" string="Quantity" attrs="{'invisible': [('display_type', '!=', False)]}"/>
-                                    <field name="product_uom_id" string="UoM" required="not display_type" attrs="{'invisible': [('display_type', '!=', False)]}" groups="uom.group_uom" width="80px"/>
-                                    <field name="unit_price" string="Unit Price" attrs="{'invisible': [('display_type', '!=', False)]}"/>
-                                    <field name="tax_ids" string="Taxes" widget="many2many_tags" attrs="{'invisible': [('display_type', '!=', False)]}"/>
-                                    <field name="discount" string="Disc.%" width="60px" attrs="{'invisible': [('display_type', '!=', False)]}"/>
-                                    <field name="price_subtotal" string="Subtotal" attrs="{'invisible': [('display_type', '!=', False)]}" readonly="1"/>
-                                    <field name="price_total" string="Amount" attrs="{'invisible': [('display_type', '!=', False)]}" readonly="1"/>
+                                    <field name="product_id" string="Product" required="not display_type" invisible="display_type != False"/>
+                                    <field name="name" string="Section / Note" invisible="display_type == False"/>
+                                    <field name="quantity" string="Quantity" invisible="display_type != False"/>
+                                    <field name="product_uom_id" string="UoM" required="not display_type" invisible="display_type != False" groups="uom.group_uom" width="80px"/>
+                                    <field name="unit_price" string="Unit Price" invisible="display_type != False"/>
+                                    <field name="tax_ids" string="Taxes" widget="many2many_tags" invisible="display_type != False"/>
+                                    <field name="discount" string="Disc.%" width="60px" invisible="display_type != False"/>
+                                    <field name="price_subtotal" string="Subtotal" invisible="display_type != False" readonly="1"/>
+                                    <field name="price_total" string="Amount" invisible="display_type != False" readonly="1"/>
                                 </list>
                             </field>
                         </page>
@@ -75,7 +77,9 @@
                 <field name="name"/>
                 <field name="customer_id"/>
                 <field name="vehicle_id"/>
-                <field name="state" widget="badge" decoration-muted="state == 'draft'" decoration-info="state == 'approved'" decoration-warning="state == 'in_progress'" decoration-success="state == 'completed'"/>
+                <field name="total_amount"/>
+                <field name="create_uid"/>
+                <field name="state" widget="badge" decoration-muted="state == 'draft'" decoration-info="state == 'approved'" decoration-warning="state == 'in_progress'" decoration-success="state == 'completed' or state == 'delivered'"/>
             </list>
         </field>
     </record>
@@ -85,4 +89,74 @@
         <field name="res_model">job.card</field>
         <field name="view_mode">list,form</field>
     </record>
+
+    <!-- Job Card Report Template - SIMPLE VERSION WITH NO WIDGETS -->
+    <template id="report_job_card">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-call="web.basic_layout">
+                    <div class="page">
+                        <h2>Job Card Report</h2>
+                        <p><strong>Job Card Number:</strong> <span t-field="doc.name"/></p>
+                        <p><strong>Date:</strong> <span t-field="doc.create_date"/></p>
+                        <p><strong>Status:</strong> <span t-field="doc.state"/></p>
+                        <p><strong>Customer:</strong> <span t-field="doc.customer_id.name"/></p>
+                        <p><strong>Vehicle:</strong> <span t-field="doc.vehicle_id.name"/></p>
+                        <p><strong>Vehicle Name:</strong> <span t-field="doc.vehicle_name"/></p>
+                        <p><strong>Vehicle Model:</strong> <span t-field="doc.vehicle_model"/></p>
+                        <p><strong>Total Amount:</strong> <span t-field="doc.total_amount"/></p>
+                        
+                        <h3>Job Card Lines</h3>
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Quantity</th>
+                                    <th>Unit Price</th>
+                                    <th>Subtotal</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="doc.job_card_lines" t-as="line">
+                                    <t t-if="line.display_type == 'line_section'">
+                                        <tr>
+                                            <td colspan="5"><strong t-field="line.name"/></td>
+                                        </tr>
+                                    </t>
+                                    <t t-elif="line.display_type == 'line_note'">
+                                        <tr>
+                                            <td colspan="5"><em t-field="line.name"/></td>
+                                        </tr>
+                                    </t>
+                                    <t t-else="">
+                                        <tr>
+                                            <td><span t-field="line.product_id.name"/></td>
+                                            <td><span t-field="line.quantity"/></td>
+                                            <td><span t-field="line.unit_price"/></td>
+                                            <td><span t-field="line.price_subtotal"/></td>
+                                            <td><span t-field="line.price_total"/></td>
+                                        </tr>
+                                    </t>
+                                </t>
+                            </tbody>
+                        </table>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+
+    <!-- Report Action -->
+    <record id="report_job_card" model="ir.actions.report">
+        <field name="name">Job Card Report</field>
+        <field name="model">job.card</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">job_card_management.report_job_card</field>
+        <field name="report_file">job_card_management.report_job_card</field>
+        <field name="print_report_name">'Job Card - %s' % (object.name)</field>
+        <field name="binding_model_id" ref="job_card_management.model_job_card"/>
+        <field name="binding_type">report</field>
+    </record>
+
 </odoo>

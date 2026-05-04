@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="report_job_card" model="ir.actions.report">
+        <field name="paperformat_id" ref="base.paperformat_euro"/>
+        <field name="name">Job Card Report</field>
+        <field name="model">job.card</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">job_card_management.report_job_card_template</field>
+        <field name="report_file">job_card_management.report_job_card_template</field>
+        <field name="print_report_name">Job Card - %(object.name)s</field>
+    </record>
+
+    <template id="report_job_card_template">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-call="web.external_layout">
+                    <div class="page">
+                        <div class="oe_structure"/>
+                        <div class="row">
+                            <div class="col-12">
+                                <h1>Job Card Report</h1>
+                                <h2 t-field="doc.name"/>
+                            </div>
+                        </div>
+                        <div class="row mt-4">
+                            <div class="col-6">
+                                <strong>Estimate Reference:</strong>
+                                <span t-field="doc.estimate_id.name"/>
+                            </div>
+                            <div class="col-6">
+                                <strong>Customer:</strong>
+                                <span t-field="doc.customer_id.name"/>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-6">
+                                <strong>Vehicle:</strong>
+                                <span t-field="doc.vehicle_name"/>
+                            </div>
+                            <div class="col-6">
+                                <strong>Vehicle Model:</strong>
+                                <span t-field="doc.vehicle_model"/>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-6">
+                                <strong>Analytic Account:</strong>
+                                <span t-field="doc.analytic_account_id.name"/>
+                            </div>
+                            <div class="col-6">
+                                <!-- <strong>State:</strong>
+                                <span t-field="doc.state"/> -->
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-6">
+                                <strong>Excess Percentage:</strong>
+                                <span t-field="doc.excess_percentage"/>%
+                            </div>
+                            <div class="col-6">
+                                <!-- <strong>Insurance Percentage:</strong>
+                                <span t-field="doc.insurance_percentage"/>% -->
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-6">
+                                <strong>Total Amount:</strong>
+                                <span t-field="doc.total_amount"/>
+                            </div>
+                            <div class="col-6">
+                                <!-- <strong>Second Customer:</strong>
+                                <span t-field="doc.second_customer_id.name"/> -->
+                            </div>
+                        </div>
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <h3>Job Card Lines</h3>
+                                <table class="table table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>Description</th>
+                                            <th>Product</th>
+                                            <th>Quantity</th>
+                                            <th>UoM</th>
+                                            <th>Unit Price</th>
+                                            <th>Discount</th>
+                                            <th>Subtotal</th>
+                                            <th>Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <t t-foreach="doc.job_card_lines" t-as="line">
+                                            <tr t-if="line.display_type == 'line_section'">
+                                                <td colspan="8">
+                                                    <strong t-field="line.name"></strong> 
+                                                </td>
+                                            </tr>
+                                            <tr t-elif="line.display_type == 'line_note'">
+                                                <td colspan="8">
+                                                    <em t-field="line.name"></em>
+                                                </td>
+                                            </tr>
+                                            <tr t-else="">
+                                                <td><span t-field="line.name"/></td>
+                                                <td><span t-field="line.product_id.name"/></td>
+                                                <td><span t-field="line.quantity"/></td>
+                                                <td><span t-field="line.product_uom_id.name"/></td>
+                                                <td><span t-field="line.unit_price"/></td>
+                                                <td><span t-field="line.discount"/>%</td>
+                                                <td><span t-field="line.price_subtotal"/></td>
+                                                <td><span t-field="line.price_total"/></td>
+                                            </tr>
+                                        </t>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>

@@ -1,3 +1,6 @@
+import random
+import string
+
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError
 
@@ -6,7 +9,11 @@ class Procurement(models.Model):
     _description = 'Procurement / Requisition'
     _order = 'id desc'
 
-    name = fields.Char(string='Requisition Number', required=True, default='New')
+    def _default_name(self):
+        random_part = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        return 'PRC-%s-TEX' % random_part
+
+    name = fields.Char(string='Requisition Number', required=True, default=_default_name)
     job_card_id = fields.Many2one('job.card', string='Job Card', required=True)
     state = fields.Selection([
         ('draft', 'Draft'),
@@ -16,6 +23,18 @@ class Procurement(models.Model):
     ], default='draft')
 
     procurement_lines = fields.One2many('procurement.line', 'procurement_id', string='Items')
+    total_amount = fields.Float(string='Total Amount', related='job_card_id.total_amount', store=False, readonly=True)
+
+    @api.model
+    def create(self, vals):
+        if isinstance(vals, list):
+            for v in vals:
+                if not v.get('name') or v.get('name') == 'New':
+                    v['name'] = self._default_name()
+        else:
+            if not vals.get('name') or vals.get('name') == 'New':
+                vals['name'] = self._default_name()
+        return super().create(vals)
 
     def action_submit_for_approval(self):
         self.state = 'submitted_for_approval'

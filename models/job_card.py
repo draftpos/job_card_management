@@ -1,3 +1,6 @@
+import random
+import string
+
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError
 
@@ -6,7 +9,11 @@ class JobCard(models.Model):
     _description = 'Job Card'
     _order = 'id desc'
 
-    name = fields.Char(string='Job Card Number', required=True, default='New')
+    def _default_name(self):
+        random_part = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        return 'JCB-%s-TEX' % random_part
+
+    name = fields.Char(string='Job Card Number', required=True, default=_default_name)
     estimate_id = fields.Many2one('estimate', string='Estimate', required=True)
     customer_id = fields.Many2one('customer', string='First Customer', required=True)  # Changed
     second_customer_id = fields.Many2one('customer', string='Second Customer (Insurance)', help='Added at final stage')  # Changed
@@ -17,12 +24,25 @@ class JobCard(models.Model):
     vehicle_model = fields.Char(related='vehicle_id.model', string='Vehicle Model', readonly=True)
     analytic_account_id = fields.Many2one('account.analytic.account', string='Analytic Account')
     job_card_lines = fields.One2many('job.card.line', 'job_card_id', string='Job Card Lines')
+
+    @api.model
+    def create(self, vals):
+        if isinstance(vals, list):
+            for v in vals:
+                if not v.get('name') or v.get('name') == 'New':
+                    v['name'] = self._default_name()
+        else:
+            if not vals.get('name') or vals.get('name') == 'New':
+                vals['name'] = self._default_name()
+        return super().create(vals)
+
     state = fields.Selection([
         ('draft', 'Draft'),
         ('approved', 'Approved'),
         ('in_progress', 'In Progress'),
         ('requisition_started', 'Requisition Started'),
-        ('completed', 'Completed')
+        ('completed', 'Completed'),
+        ('delivered', 'Delivered')
     ], default='draft')
     total_amount = fields.Float(string='Total Amount', compute='_compute_total', store=True)
 
@@ -53,7 +73,7 @@ class JobCard(models.Model):
                 'quantity': line.quantity,
                 'type': 'purchase_order',  # Assume purchase order for external procurement
             })
-        self.state = 'requisition_started'
+        self.state = 'in_progress'
         return {
             'type': 'ir.actions.act_window',
             'res_model': 'procurement',
@@ -73,38 +93,46 @@ class JobCard(models.Model):
             raise UserError(_('No income account configured. Please set up an income account in Accounting.'))
         
         # Create invoice for customer (excess amount)
-        customer_amount = self.total_amount * (self.excess_percentage / 100)
-        if customer_amount > 0 and self.customer_id.partner_id:
+        customer_lines = []
+        for line in self.job_card_lines.filtered(lambda l: not l.display_type and l.price_total > 0):
+            customer_price = line.price_total * (self.excess_percentage / 100)
+            if customer_price > 0:
+                customer_lines.append((0, 0, {
+                    'name': line.name or (line.product_id.name if line.product_id else 'Job Card Service'),
+                    'quantity': line.quantity,
+                    'price_unit': customer_price / line.quantity if line.quantity > 0 else customer_price,
+                    'account_id': income_account.id,
+                }))
+        if customer_lines and self.customer_id.partner_id:
             customer_invoice = self.env['account.move'].create({
                 'move_type': 'out_invoice',
                 'partner_id': self.customer_id.partner_id.id,
                 'invoice_origin': self.name,
-                'invoice_line_ids': [(0, 0, {
-                    'name': 'Job Card Services - Customer Portion',
-                    'quantity': 1,
-                    'price_unit': customer_amount,
-                    'account_id': income_account.id,
-                })],
+                'invoice_line_ids': customer_lines,
             })
             customer_invoice.action_post()
         
         # Create invoice for insurance (insurance portion)
-        insurance_amount = self.total_amount * (self.insurance_percentage / 100)
-        if insurance_amount > 0 and self.second_customer_id.partner_id:
+        insurance_lines = []
+        for line in self.job_card_lines.filtered(lambda l: not l.display_type and l.price_total > 0):
+            insurance_price = line.price_total * (self.insurance_percentage / 100)
+            if insurance_price > 0:
+                insurance_lines.append((0, 0, {
+                    'name': line.name or (line.product_id.name if line.product_id else 'Job Card Service'),
+                    'quantity': line.quantity,
+                    'price_unit': insurance_price / line.quantity if line.quantity > 0 else insurance_price,
+                    'account_id': income_account.id,
+                }))
+        if insurance_lines and self.second_customer_id.partner_id:
             insurance_invoice = self.env['account.move'].create({
                 'move_type': 'out_invoice',
                 'partner_id': self.second_customer_id.partner_id.id,
                 'invoice_origin': self.name,
-                'invoice_line_ids': [(0, 0, {
-                    'name': 'Job Card Services - Insurance Portion',
-                    'quantity': 1,
-                    'price_unit': insurance_amount,
-                    'account_id': income_account.id,
-                })],
+                'invoice_line_ids': insurance_lines,
             })
             insurance_invoice.action_post()
         
-        self.state = 'completed'
+        self.state = 'delivered'
 
 class JobCardLine(models.Model):
     _name = 'job.card.line'

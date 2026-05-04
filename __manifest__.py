@@ -6,6 +6,7 @@
     'data': [
         'security/job_card_groups.xml',
         'security/ir.model.access.csv',
+        'reports/job_card_report.xml',
         'views/customer_views.xml',
         'views/vehicle_views.xml',
         'views/estimate_views.xml',
