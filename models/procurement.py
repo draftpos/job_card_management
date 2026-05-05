@@ -24,6 +24,16 @@ class Procurement(models.Model):
 
     procurement_lines = fields.One2many('procurement.line', 'procurement_id', string='Items')
     total_amount = fields.Float(string='Total Amount', related='job_card_id.total_amount', store=False, readonly=True)
+    purchase_order_created_count = fields.Integer(string='Purchase Orders Created', compute='_compute_procurement_stats')
+    internal_transfer_created_count = fields.Integer(string='Internal Transfers Created', compute='_compute_procurement_stats')
+    receipt_delivered_count = fields.Integer(string='Delivered Items', compute='_compute_procurement_stats')
+
+    @api.depends('procurement_lines.purchase_order_created', 'procurement_lines.internal_transfer_created', 'procurement_lines.receipt_status')
+    def _compute_procurement_stats(self):
+        for record in self:
+            record.purchase_order_created_count = sum(1 for line in record.procurement_lines if line.purchase_order_created)
+            record.internal_transfer_created_count = sum(1 for line in record.procurement_lines if line.internal_transfer_created)
+            record.receipt_delivered_count = sum(1 for line in record.procurement_lines if line.receipt_status == 'delivered')
 
     @api.model
     def create(self, vals):
@@ -77,6 +87,46 @@ class Procurement(models.Model):
             line.write({'internal_transfer_created': True})
 
         self.state = 'purchase_order_created'
+
+    def action_view_purchase_orders(self):
+        self.ensure_one()
+        purchase_orders = self.env['purchase.order'].search([('origin', '=', self.name)])
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Purchase Orders'),
+            'res_model': 'purchase.order',
+            'view_mode': 'tree,form',
+            'domain': [('id', 'in', purchase_orders.ids)],
+        }
+
+    def action_view_internal_transfers(self):
+        self.ensure_one()
+        pickings = self.env['stock.picking'].search([
+            ('origin', '=', self.name),
+            ('picking_type_code', '=', 'internal'),
+        ])
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Internal Transfers'),
+            'res_model': 'stock.picking',
+            'view_mode': 'list,form',
+            'domain': [('id', 'in', pickings.ids)],
+        }
+
+    def action_view_delivered_items(self):
+        self.ensure_one()
+        pickings = self.env['stock.picking'].search([
+            ('origin', '=', self.name),
+            ('picking_type_code', '=', 'incoming'),
+            ('state', '=', 'done'),
+        ])
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Delivered Items'),
+            'res_model': 'stock.picking',
+            'view_mode': 'list,form',
+            'domain': [('id', 'in', pickings.ids)],
+        }
 
     def action_create_grv(self):
         # Update receipt statuses

@@ -13,6 +13,17 @@
                     <field name="state" widget="statusbar"/>
                 </header>
                 <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_purchase_orders" type="object" class="oe_stat_button" icon="fa-shopping-cart">
+                            <field name="purchase_order_created_count" widget="statinfo" string="PO Created"/>
+                        </button>
+                        <button name="action_view_internal_transfers" type="object" class="oe_stat_button" icon="fa-truck">
+                            <field name="internal_transfer_created_count" widget="statinfo" string="Transfers"/>
+                        </button>
+                        <button name="action_view_delivered_items" type="object" class="oe_stat_button" icon="fa-check-circle">
+                            <field name="receipt_delivered_count" widget="statinfo" string="Delivered"/>
+                        </button>
+                    </div>
                     <field name="name"/>
                     <field name="job_card_id"/>
                     <group string="Procurement Lines">
