@@ -5,139 +5,125 @@
     <template id="estimates_report">
         <t t-call="web.html_container">
             <t t-foreach="docs" t-as="doc">
-                <t t-call="job_card_management.estimates_report_document"/>
-            </t>
-        </t>
-    </template>
+                <t t-call="web.external_layout">
+                    <div class="page">
+                        <div class="oe_structure"/>
+                        <div class="row">
+                            <div class="col-12">
+                                <h1>Estimate Report</h1>
+                                <h2 t-field="doc.name"/>
+                            </div>
+                        </div>
+                        <div class="row mt-4">
+                            <div class="col-6">
+                                <strong>Customer:</strong>
+                                <span t-field="doc.customer_id.name"/>
+                            </div>
+                            <div class="col-6">
+                                <strong>Date:</strong>
+                                <span t-if="doc.create_date" t-field="doc.create_date"/>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-6">
+                                <strong>Vehicle:</strong>
+                                <span t-field="doc.vehicle_id.name"/>
+                            </div>
+                            <div class="col-6">
+                                <strong>Vehicle Model:</strong>
+                                <span t-field="doc.vehicle_model"/>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-6">
+                                <strong>Analytic Account:</strong>
+                                <span t-if="doc.analytic_account_id" t-field="doc.analytic_account_id.name"/>
+                            </div>
+                        </div>
 
-    <template id="estimates_report_document">
-        <t t-call="web.basic_layout">
-            <div class="page">
-                <div class="oe_structure"/>
-                <div class="row mt4 mb4">
-                    <div class="col-6">
-                        <strong>Estimate Number:</strong>
-                        <h3 class="mt0"><span t-field="doc.name"/></h3>
-                    </div>
-                    <div class="col-6 text-end">
-                        <strong>Date:</strong>
-                        <p t-if="doc.create_date" t-field="doc.create_date"/>
-                    </div>
-                </div>
-
-                <div class="row mt4 mb4">
-                    <div class="col-6">
-                        <strong>Customer Information</strong>
-                        <address class="mt0">
-                            <span t-field="doc.customer_id.name"/>
-                        </address>
-                    </div>
-                    <div class="col-6">
-                        <strong>Vehicle Information</strong>
-                        <p class="mt0">
-                            <strong>Vehicle:</strong> <span t-field="doc.vehicle_id.name"/><br/>
-                            <strong>Vehicle Name:</strong> <span t-field="doc.vehicle_name"/><br/>
-                            <strong>Vehicle Model:</strong> <span t-field="doc.vehicle_model"/><br/>
-                            <t t-if="doc.analytic_account_id">
-                                <strong>Analytic Account:</strong> <span t-field="doc.analytic_account_id.name"/>
-                            </t>
-                        </p>
-                    </div>
-                </div>
-
-                <!-- Order Lines Table -->
-                <div class="mt4">
-                    <strong class="mb2">Order Lines</strong>
-                    <table class="table table-sm o_main_table mt0">
-                        <thead>
-                            <tr>
-                                <th class="text-start">Product/Section</th>
-                                <th class="text-end">Quantity</th>
-                                <th class="text-end">UoM</th>
-                                <th class="text-end">Unit Price</th>
-                                <th class="text-end">Discount</th>
-                                <th class="text-end">Subtotal</th>
-                                <th class="text-end">Amount</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <t t-set="lines" t-value="doc.estimate_lines"/>
-                            <t t-foreach="lines" t-as="line">
-                                <!-- Section Lines -->
-                                <t t-if="line.display_type == 'line_section'">
-                                    <tr class="o_line_section">
-                                        <td colspan="7">
-                                            <strong t-field="line.name"/>
-                                        </td>
-                                    </tr>
-                                </t>
-                                <!-- Note Lines -->
-                                <t t-elif="line.display_type == 'line_note'">
-                                    <tr class="o_line_note">
-                                        <td colspan="7">
-                                            <em t-field="line.name"/>
-                                        </td>
-                                    </tr>
-                                </t>
-                                <!-- Regular Product Lines -->
-                                <t t-else="">
-                                    <tr>
-                                        <td class="text-start">
-                                            <span t-field="line.product_id.name"/>
-                                            <t t-if="line.name and line.name != line.product_id.name">
-                                                <br/>
-                                                <small class="text-muted" t-field="line.name"/>
+                        <div class="row mt-4" id="estimate_lines" style="page-break-inside: auto;">
+                            <div class="col-12">
+                                <h3>Estimate Lines</h3>
+                                <div name="sol_table" class="table-responsive">
+                                    <table class="table table-sm" id="estimate_table">
+                                        <thead>
+                                            <tr>
+                                                <th class="text-start" id="product_name_header"><strong>Products</strong></th>
+                                                <th class="text-end" id="product_qty_header"><strong>Quantity</strong></th>
+                                                <th id="product_unit_price_header" class="text-end d-none d-sm-table-cell"><strong>Unit Price</strong></th>
+                                                <th class="text-end" id="product_discount_header"><strong>Discount</strong></th>
+                                                <th class="text-end" id="subtotal_header"><strong>Subtotal</strong></th>
+                                                <th class="text-end" id="amount_header"><strong>Amount</strong></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="estimate_tbody">
+                                            <t t-foreach="doc.estimate_lines" t-as="line">
+                                                <tr t-if="line.display_type == 'line_section'" class="o_line_section">
+                                                    <td colspan="6"><strong t-field="line.name"/></td>
+                                                </tr>
+                                                <tr t-elif="line.display_type == 'line_note'" class="o_line_note">
+                                                    <td colspan="6"><em t-field="line.name"/></td>
+                                                </tr>
+                                                <tr t-else="" name="tr_product">
+                                                    <td name="td_product_name" class="">
+                                                        <span name="span_product_name" t-field="line.product_id.name"/>
+                                                    </td>
+                                                    <td name="td_product_quantity" class="text-end">
+                                                        <div>
+                                                            <span t-esc="'{:.2f}'.format(line.quantity)"/>
+                                                            <span> </span>
+                                                            <span t-field="line.product_uom_id.name"/>
+                                                        </div>
+                                                    </td>
+                                                    <td name="td_product_priceunit" class="text-end d-none d-sm-table-cell">
+                                                        <div class="text-end">
+                                                            <span t-esc="'$ {:.2f}'.format(line.unit_price)"/>
+                                                        </div>
+                                                    </td>
+                                                    <td name="td_product_discount" class="text-end">
+                                                        <span t-esc="'{:.2f}'.format(line.discount)"/><t t-if="line.discount">%</t>
+                                                    </td>
+                                                    <td name="td_product_subtotal" class="text-end">
+                                                        <span t-esc="'$ {:.2f}'.format(line.price_subtotal)"/>
+                                                    </td>
+                                                    <td name="td_product_amount" class="text-end">
+                                                        <span t-esc="'$ {:.2f}'.format(line.price_total)"/>
+                                                    </td>
+                                                </tr>
                                             </t>
-                                        </td>
-                                        <td class="text-end">
-                                            <span t-field="line.quantity"/>
-                                        </td>
-                                        <td class="text-end">
-                                            <span t-field="line.product_uom_id.name"/>
-                                        </td>
-                                        <td class="text-end">
-                                            <span t-field="line.unit_price"/>
-                                        </td>
-                                        <td class="text-end">
-                                            <span t-field="line.discount"/><t t-if="line.discount">%</t>
-                                        </td>
-                                        <td class="text-end">
-                                            <span t-field="line.price_subtotal"/>
-                                        </td>
-                                        <td class="text-end">
-                                            <strong>
-                                                <span t-field="line.price_total"/>
-                                            </strong>
-                                        </td>
-                                    </tr>
-                                </t>
-                            </t>
-                        </tbody>
-                    </table>
-                </div>
+                                        </tbody>
+                                    </table>
+                                </div>
 
-                <!-- Totals Section -->
-                <div class="row mt4">
-                    <div class="col-9">
+                                <div id="total" name="total" style="page-break-inside: avoid;">
+                                    <div class="col-xs-7 col-md-5 ms-auto">
+                                        <table class="table table-sm" name="estimate_totals_table">
+                                            <tbody>
+                                                <t t-if="doc.amount_untaxed">
+                                                    <tr class="o_subtotal">
+                                                        <td><span>Untaxed Amount</span></td>
+                                                        <td class="text-end"><span t-esc="'$ {:.2f}'.format(doc.amount_untaxed)"/></td>
+                                                    </tr>
+                                                </t>
+                                                <t t-if="doc.amount_tax">
+                                                    <tr class="o_taxes">
+                                                        <td style="max-width: 200px;"><span>Tax Amount</span></td>
+                                                        <td class="text-end o_price_total"><span class="text-nowrap"><t t-esc="'$ {:.2f}'.format(doc.amount_tax)"/></span></td>
+                                                    </tr>
+                                                </t>
+                                                <tr class="o_total">
+                                                    <td><strong>Total</strong></td>
+                                                    <td class="text-end"><strong><span t-esc="'$ {:.2f}'.format(doc.amount_total)"/></strong></td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-3">
-                        <table class="table table-sm">
-                            <t t-if="doc.amount_untaxed">
-                                <tr>
-                                    <td class="text-start"><strong>Untaxed Amount:</strong></td>
-                                    <td class="text-end"><span t-field="doc.amount_untaxed"/></td>
-                                </tr>
-                            </t>
-                            <tr class="border-top">
-                                <td class="text-start"><strong>Total:</strong></td>
-                                <td class="text-end"><strong><span t-field="doc.amount_total"/></strong></td>
-                            </tr>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="oe_structure"/>
-            </div>
+                </t>
+            </t>
         </t>
     </template>
 
@@ -151,6 +137,7 @@
                     <button name="action_submit" string="Submit for Approval" type="object" invisible="state not in ['draft']"/>
                     <button name="action_approve" string="Approve" type="object" invisible="state not in ['submitted']"/>
                     <button name="action_open_job_card" string="Open Job Card" type="object" invisible="state not in ['approved'] or has_job_card"/>
+                    <button name="%(job_card_management.action_report_estimate)d" string="Print Estimate" type="action" class="btn-secondary"/>
                     <field name="state" widget="statusbar"/>
                 </header>
                 <sheet>

@@ -44,6 +44,16 @@
                         </div>
                         <div class="row mt-2">
                             <div class="col-6">
+                                <strong>Start Date Expected:</strong>
+                                <span t-field="doc.start_date"/>
+                            </div>
+                            <div class="col-6">
+                                <strong>End Date Expected:</strong>
+                                <span t-field="doc.end_date"/>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-6">
                                 <strong>Analytic Account:</strong>
                                 <span t-field="doc.analytic_account_id.name"/>
                             </div>
@@ -193,6 +203,16 @@
                             <div class="col-6">
                                 <strong>Vehicle Model:</strong>
                                 <span t-field="doc.vehicle_model"/>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-6">
+                                <strong>Start Date Expected:</strong>
+                                <span t-field="doc.start_date"/>
+                            </div>
+                            <div class="col-6">
+                                <strong>End Date Expected:</strong>
+                                <span t-field="doc.end_date"/>
                             </div>
                         </div>
                         <div class="row mt-2">

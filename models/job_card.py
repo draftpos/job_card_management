@@ -24,8 +24,8 @@ class JobCard(models.Model):
     vehicle_model = fields.Char(related='vehicle_id.model', string='Vehicle Model', readonly=True)
     vehicle_display = fields.Char(string='Vehicle', compute='_compute_vehicle_display')
     analytic_account_id = fields.Many2one('account.analytic.account', string='Analytic Account')
-    start_date = fields.Date(string='Start Date Expected')
-    end_date = fields.Date(string='End Date Expected')
+    start_date = fields.Date(string='Start Date Expected', required=True)
+    end_date = fields.Date(string='End Date Expected', required=True)
     job_card_lines = fields.One2many('job.card.line', 'job_card_id', string='Job Card Lines')
 
     @api.model

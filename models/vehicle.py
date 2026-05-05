@@ -3,6 +3,7 @@ from odoo import models, fields, api
 class Vehicle(models.Model):
     _name = 'vehicle'
     _description = 'Vehicle Master'
+    _inherit = ['mail.thread', 'mail.activity.mixin']
     _order = 'name'
 
     # --- Vehicle Identification ---
@@ -48,3 +49,14 @@ class Vehicle(models.Model):
     # --- Links to customer model (not res.partner) ---
     customer_id = fields.Many2one('customer', string='Owner Customer')
     insurance_customer_id = fields.Many2one('customer', string='Insurance Customer')
+
+    # --- Computed fields for reports ---
+    completed_job_cards = fields.One2many('job.card', compute='_compute_completed_job_cards', string='Completed Job Cards')
+
+    @api.depends()
+    def _compute_completed_job_cards(self):
+        for vehicle in self:
+            vehicle.completed_job_cards = self.env['job.card'].search([
+                ('vehicle_id', '=', vehicle.id),
+                ('state', '=', 'delivered')
+            ], order='create_date desc')
