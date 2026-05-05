@@ -142,7 +142,7 @@ class EstimateLine(models.Model):
     ], string='Line Type', help='Choose section or note line to add headers and descriptions.')
     name = fields.Text(string='Description')
     product_id = fields.Many2one('product.product', string='Product')
-    product_uom_id = fields.Many2one('uom.uom', string='Unit of Measure')
+    product_uom_id = fields.Many2one('uom.uom', string='Unit of Measure', default=lambda self: self.env.ref('uom.product_uom_unit', raise_if_not_found=False).id if self.env.ref('uom.product_uom_unit', raise_if_not_found=False) else False)
     quantity = fields.Float(string='Quantity', default=1.0)
     unit_price = fields.Float(string='Unit Price')
     tax_ids = fields.Many2many('account.tax', string='Taxes')

@@ -24,8 +24,8 @@ class JobCard(models.Model):
     vehicle_model = fields.Char(related='vehicle_id.model', string='Vehicle Model', readonly=True)
     vehicle_display = fields.Char(string='Vehicle', compute='_compute_vehicle_display')
     analytic_account_id = fields.Many2one('account.analytic.account', string='Analytic Account')
-    start_date = fields.Date(string='Start Date Expected', required=True)
-    end_date = fields.Date(string='End Date Expected', required=True)
+    start_date = fields.Date(string='Start Date Expected')
+    end_date = fields.Date(string='End Date Expected')
     job_card_lines = fields.One2many('job.card.line', 'job_card_id', string='Job Card Lines')
 
     @api.model
@@ -158,7 +158,7 @@ class JobCardLine(models.Model):
     ], string='Line Type', help='Choose section or note line to add headers and descriptions.')
     name = fields.Text(string='Description')
     product_id = fields.Many2one('product.product', string='Product')
-    product_uom_id = fields.Many2one('uom.uom', string='Unit of Measure')
+    product_uom_id = fields.Many2one('uom.uom', string='Unit of Measure', default=lambda self: self.env.ref('uom.product_uom_unit', raise_if_not_found=False).id if self.env.ref('uom.product_uom_unit', raise_if_not_found=False) else False)
     quantity = fields.Float(string='Quantity', default=1.0)
     unit_price = fields.Float(string='Unit Price')
     tax_ids = fields.Many2many('account.tax', string='Taxes')

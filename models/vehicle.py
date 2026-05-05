@@ -22,13 +22,13 @@ class Vehicle(models.Model):
         ('automatic', 'Automatic'),
         ('cvt', 'CVT'),
         ('other', 'Other')
-    ], string='Transmission', required=True)
+    ], string='Transmission')
     drive_type = fields.Selection([
         ('fwd', 'Front Wheel Drive'),
         ('rwd', 'Rear Wheel Drive'),
         ('awd', 'All Wheel Drive'),
         ('4wd', '4 Wheel Drive')
-    ], string='Drive Type', required=True)
+    ], string='Drive Type')
     fuel_type = fields.Selection([
         ('petrol', 'Petrol'),
         ('diesel', 'Diesel'),
@@ -36,7 +36,7 @@ class Vehicle(models.Model):
         ('hybrid', 'Hybrid'),
         ('cng', 'CNG'),
         ('lpg', 'LPG')
-    ], string='Fuel Type', required=True)
+    ], string='Fuel Type')
     odometer_reading = fields.Float(string='Odometer Reading (km/miles)')
 
     # --- Service Specifics ---
