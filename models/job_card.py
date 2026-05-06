@@ -333,6 +333,22 @@ class JobCard(models.Model):
         self._create_invoices()
         
         return self.action_view_invoices()
+    
+    @api.model
+    def get_dashboard_data(self, user_id=None, date_from=None, date_to=None):
+        """Return all dashboard statistics - called from JS"""
+        dashboard = self.env['job.card.dashboard']
+        return dashboard.get_dashboard_data(
+            user_id=user_id, date_from=date_from, date_to=date_to
+        )
+
+    @api.model
+    def get_overdue_jobs(self, user_id=None, date_from=None, date_to=None):
+        """Return overdue job cards - called from JS"""
+        dashboard = self.env['job.card.dashboard']
+        return dashboard.get_overdue_jobs(
+            user_id=user_id, date_from=date_from, date_to=date_to
+        )
 
 
 class JobCardLine(models.Model):

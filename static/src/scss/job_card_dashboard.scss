@@ -1,0 +1,175 @@
+.o_job_card_dashboard {
+    padding: 16px 20px;
+    overflow-y: auto;
+    height: 100%;
+    background: #f3f4f6;
+    
+    .dashboard-header {
+        h2 { font-size: 20px; font-weight: 700; color: #1a1a2e; }
+        p { font-size: 13px; color: #6c757d; }
+    }
+    
+    .filter-bar {
+        background: #ffffff;
+        border: 1px solid #e0e0e0;
+        border-radius: 10px;
+        padding: 14px 18px;
+        margin-bottom: 16px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    
+    .filter-label {
+        display: block;
+        font-size: 10px;
+        font-weight: 700;
+        color: #888;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 5px;
+    }
+    
+    .filter-input {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 7px;
+        font-size: 13px;
+        color: #333;
+        background: #fff;
+        outline: none;
+        transition: all 0.15s;
+        &:hover { border-color: #bbb; }
+        &:focus { border-color: #5b6be8; box-shadow: 0 0 0 3px rgba(91,107,232,0.1); }
+    }
+    
+    .stat-card {
+        background: #ffffff;
+        border: 1px solid #e8eaed;
+        border-radius: 12px;
+        padding: 18px 20px;
+        transition: all 0.2s ease;
+        cursor: default;
+        height: 100%;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        
+        &:hover {
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+            border-color: #d0d5dd;
+        }
+        
+        .stat-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: #ffffff;
+            flex-shrink: 0;
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1a1a2e;
+            line-height: 1.2;
+            margin-bottom: 3px;
+        }
+        
+        .stat-label {
+            font-size: 10.5px;
+            font-weight: 600;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+        }
+        
+        &.stat-blue .stat-icon { background: #5b6be8; }
+        &.stat-green .stat-icon { background: #22b368; }
+        &.stat-yellow .stat-icon { background: #f0a020; }
+        &.stat-cyan .stat-icon { background: #3dbdd5; }
+        &.stat-purple .stat-icon { background: #7c5cf0; }
+        &.stat-red .stat-icon { background: #e5484d; }
+        &.stat-gray .stat-icon { background: #8e94a0; }
+        &.stat-teal .stat-icon { background: #14b8a6; }
+    }
+    
+    .overdue-card {
+        background: #ffffff;
+        border: 1px solid #e8eaed;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        
+        .overdue-header {
+            padding: 16px 22px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            h5 { font-size: 15px; font-weight: 700; margin: 0; color: #1a1a2e; }
+        }
+        
+        .badge-overdue {
+            background: #fef0f0;
+            color: #e5484d;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 5px 12px;
+            border-radius: 20px;
+        }
+        
+        table {
+            margin: 0;
+            thead th {
+                background: #f8f9fb;
+                font-size: 11px;
+                font-weight: 700;
+                color: #888;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                padding: 14px 22px;
+                border-bottom: 2px solid #e9ecef;
+            }
+            tbody {
+                tr {
+                    border-bottom: 1px solid #f0f0f0;
+                    transition: background 0.1s;
+                    &:last-child { border-bottom: none; }
+                    &:hover { background: #f4f6ff; cursor: pointer; }
+                    td { padding: 14px 22px; font-size: 13px; vertical-align: middle; color: #444; }
+                }
+            }
+        }
+    }
+    
+    .empty-state {
+        padding: 50px 40px;
+        text-align: center;
+        color: #999;
+        h5 { color: #555; margin-top: 10px; }
+        p { font-size: 13px; }
+    }
+    
+    .stat-badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: capitalize;
+        &.stat-warning { background: #fff8e6; color: #b87a14; }
+        &.stat-info { background: #e8f4fd; color: #2276b1; }
+        &.stat-danger { background: #fef0f0; color: #e5484d; }
+    }
+    
+    .text-danger { color: #e5484d !important; }
+    
+    .btn-outline-primary {
+        color: #5b6be8;
+        border-color: #5b6be8;
+        &:hover { background: #5b6be8; color: #fff; }
+    }
+}
