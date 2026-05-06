@@ -39,6 +39,16 @@
                                 <strong>Analytic Account:</strong>
                                 <span t-if="doc.analytic_account_id" t-field="doc.analytic_account_id.name"/>
                             </div>
+                            <div class="col-6">
+                                <strong>Vehicle ID:</strong>
+                                <span t-field="doc.vehicle_id.registration_number"/>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-6">
+                                <strong>Estimator:</strong>
+                                <span t-field="env.user.name"/>
+                            </div>
                         </div>
 
                         <div class="row mt-4" id="estimate_lines" style="page-break-inside: auto;">
@@ -46,7 +56,7 @@
                                 <h3>Estimate Lines</h3>
                                 <div name="sol_table" class="table-responsive">
                                     <table class="table table-sm" id="estimate_table">
-                                        <thead>
+                                        <thead style="color: red;">
                                             <tr>
                                                 <th class="text-start" id="product_name_header"><strong>Products</strong></th>
                                                 <th class="text-end" id="product_qty_header"><strong>Quantity</strong></th>
@@ -58,7 +68,7 @@
                                         </thead>
                                         <tbody class="estimate_tbody">
                                             <t t-foreach="doc.estimate_lines" t-as="line">
-                                                <tr t-if="line.display_type == 'line_section'" class="o_line_section">
+                                                <tr t-if="line.display_type == 'line_section'" class="o_line_section" style="color: red;">
                                                     <td colspan="6"><strong t-field="line.name"/></td>
                                                 </tr>
                                                 <tr t-elif="line.display_type == 'line_note'" class="o_line_note">

@@ -15,6 +15,7 @@ class Procurement(models.Model):
 
     name = fields.Char(string='Requisition Number', required=True, default=_default_name)
     job_card_id = fields.Many2one('job.card', string='Job Card', required=True)
+    analytic_account_id = fields.Many2one('account.analytic.account', string='Analytic Account')
     state = fields.Selection([
         ('draft', 'Draft'),
         ('submitted_for_approval', 'Submit for Approval'),
@@ -23,10 +24,20 @@ class Procurement(models.Model):
     ], default='draft')
 
     procurement_lines = fields.One2many('procurement.line', 'procurement_id', string='Items')
-    total_amount = fields.Float(string='Total Amount', related='job_card_id.total_amount', store=False, readonly=True)
+    total_amount = fields.Float(string='Total Amount', compute='_compute_total_amount', store=False, readonly=True)
     purchase_order_created_count = fields.Integer(string='Purchase Orders Created', compute='_compute_procurement_stats')
     internal_transfer_created_count = fields.Integer(string='Internal Transfers Created', compute='_compute_procurement_stats')
     receipt_delivered_count = fields.Integer(string='Delivered Items', compute='_compute_procurement_stats')
+    
+    @api.depends('job_card_id')
+    def _compute_total_amount(self):
+        for record in self:
+            if record.job_card_id:
+                record.total_amount = record.job_card_id.total_amount
+            else:
+                record.total_amount = 0.0
+            
+    
 
     @api.depends('procurement_lines.purchase_order_created', 'procurement_lines.internal_transfer_created', 'procurement_lines.receipt_status')
     def _compute_procurement_stats(self):
@@ -74,13 +85,20 @@ class Procurement(models.Model):
                 'origin': self.name,
             })
             for line in lines:
-                self.env['purchase.order.line'].create({
+                po_line_vals = {
                     'order_id': po.id,
                     'product_id': line.product_id.id,
                     'product_qty': line.quantity,
-                })
+                    'product_uom_id': line.product_uom_id.id or (line.product_id.uom_id.id if line.product_id else False),
+                    'price_unit': getattr(line, 'unit_price', 0.0) or 0.0,
+                    'date_planned': fields.Datetime.now(),
+                }
+                if self.analytic_account_id:
+                    po_line_vals['analytic_distribution'] = {str(self.analytic_account_id.id): 100.0}
+                self.env['purchase.order.line'].create(po_line_vals)
             po.button_confirm()
-            line.write({'purchase_order_created': True})
+            for line in lines:
+                line.write({'purchase_order_created': True})
 
         # Internal transfers (type = internal_transfer)
         for line in self.procurement_lines.filtered(lambda l: l.type == 'internal_transfer'):
@@ -95,7 +113,7 @@ class Procurement(models.Model):
             'type': 'ir.actions.act_window',
             'name': _('Purchase Orders'),
             'res_model': 'purchase.order',
-            'view_mode': 'tree,form',
+            'view_mode': 'list,form',
             'domain': [('id', 'in', purchase_orders.ids)],
         }
 
@@ -165,14 +183,22 @@ class Procurement(models.Model):
 class ProcurementLine(models.Model):
     _name = 'procurement.line'
     _description = 'Procurement Line'
+    _order = 'sequence, id'
 
     procurement_id = fields.Many2one('procurement', string='Procurement')
-    product_id = fields.Many2one('product.product', string='Product', required=True)
+    sequence = fields.Integer(string='Sequence', default=10)
+    display_type = fields.Selection([
+        ('line_section', 'Section'),
+        ('line_note', 'Note'),
+    ], string='Line Type', help='Choose section or note line to add headers and descriptions.')
+    name = fields.Text(string='Description')
+    product_id = fields.Many2one('product.product', string='Product')
+    product_uom_id = fields.Many2one('uom.uom', string='Unit of Measure', default=lambda self: self.env.ref('uom.product_uom_unit', raise_if_not_found=False).id if self.env.ref('uom.product_uom_unit', raise_if_not_found=False) else False)
     quantity = fields.Float(string='Quantity', default=1.0)
     type = fields.Selection([
         ('internal_transfer', 'Internal Transfer'),
         ('purchase_order', 'Purchase Order')
-    ], string='Type', required=True)
+    ], string='Type', required=True, default='purchase_order')
     vendor_id = fields.Many2one('customer', string='Vendor', help='Editable only after requisition approved', domain="[('customer_type', '=', 'main')]")
     receipt_status = fields.Selection([
         ('open', 'Open'),

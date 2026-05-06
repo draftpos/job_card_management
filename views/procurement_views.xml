@@ -26,11 +26,21 @@
                     </div>
                     <field name="name"/>
                     <field name="job_card_id"/>
+                    <field name="analytic_account_id"/>
                     <group string="Procurement Lines">
-                        <field name="procurement_lines">
+                        <field name="procurement_lines" widget="section_and_note_one2many" nolabel="1">
                             <list editable="bottom">
-                                <field name="product_id"/>
-                                <field name="quantity"/>
+                                <control>
+                                    <create name="add_product_control" string="Add a product"/>
+                                    <create name="add_section_control" string="Add a section" context="{'default_display_type': 'line_section'}"/>
+                                    <create name="add_note_control" string="Add a note" context="{'default_display_type': 'line_note'}"/>
+                                </control>
+                                <field name="display_type" column_invisible="True"/>
+                                <field name="sequence" widget="handle"/>
+                                <field name="product_id" string="Product" required="not display_type" invisible="display_type != False"/>
+                                <field name="name" string="Section/Note" invisible="display_type == False"/>
+                                <field name="product_uom_id" string="UoM" required="not display_type" invisible="display_type != False" groups="uom.group_uom" width="80px"/>
+                                <field name="quantity" string="Quantity" invisible="display_type != False"/>
                                 <field name="type"/>
                                 <field name="vendor_id" invisible="type == 'internal_transfer'"/>
                                 <field name="receipt_status"/>
@@ -51,6 +61,7 @@
             <list>
                 <field name="name"/>
                 <field name="job_card_id"/>
+                <field name="analytic_account_id"/>
                 <field name="total_amount"/>
                 <field name="create_uid"/>
                 <field name="state"/>

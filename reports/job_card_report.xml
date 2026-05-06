@@ -55,11 +55,17 @@
                         <div class="row mt-2">
                             <div class="col-6">
                                 <strong>Analytic Account:</strong>
-                                <span t-field="doc.analytic_account_id.name"/>
+                                <span t-if="doc.analytic_account_id" t-field="doc.analytic_account_id.name"/>
                             </div>
                             <div class="col-6">
-                                <!-- <strong>State:</strong>
-                                <span t-field="doc.state"/> -->
+                                <strong>Vehicle ID:</strong>
+                                <span t-field="doc.vehicle_id.registration_number"/>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-6">
+                                <strong>Estimator:</strong>
+                                <span t-field="env.user.name"/>
                             </div>
                         </div>
                         <div class="row mt-2">
@@ -218,11 +224,17 @@
                         <div class="row mt-2">
                             <div class="col-6">
                                 <strong>Analytic Account:</strong>
-                                <span t-field="doc.analytic_account_id.name"/>
+                                <span t-if="doc.analytic_account_id" t-field="doc.analytic_account_id.name"/>
                             </div>
                             <div class="col-6">
-                                <!-- <strong>State:</strong>
-                                <span t-field="doc.state"/> -->
+                                <strong>Vehicle ID:</strong>
+                                <span t-field="doc.vehicle_id.registration_number"/>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-6">
+                                <strong>Estimator:</strong>
+                                <span t-field="env.user.name"/>
                             </div>
                         </div>
                         <div class="row mt-4">

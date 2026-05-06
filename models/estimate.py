@@ -8,10 +8,9 @@ class Estimate(models.Model):
     _name = 'estimate'
     _description = 'Estimate / Quote'
     _order = 'id desc'
-
+    
     def _default_name(self):
-        random_part = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-        return 'EST-%s-TEX' % random_part
+        return 'JOB-%07d' % (int(self.search([], order='name desc', limit=1).name[4:] or 0) + 1 if self.search([], order='name desc', limit=1) and self.search([], order='name desc', limit=1).name and self.search([], order='name desc', limit=1).name.startswith('JOB-') else 1)
 
     name = fields.Char(string='Estimate Number', required=True, default=_default_name, help='Unique reference for this estimate')
     customer_id = fields.Many2one('customer', string='Customer', required=True, help='Select the customer for this estimate')
@@ -27,6 +26,7 @@ class Estimate(models.Model):
     ], default='draft')
     has_job_card = fields.Boolean(string='Job Card Opened', default=False)
     job_card_id = fields.Many2one('job.card', string='Linked Job Card')
+    sale_order_id = fields.Many2one('sale.order', string='Sales Order')
 
     estimate_lines = fields.One2many('estimate.line', 'estimate_id', string='Lines')
 
@@ -70,6 +70,7 @@ class Estimate(models.Model):
                 'partner_id': self.customer_id.partner_id.id,
                 'origin': self.name,
             })
+            self.sale_order_id = sale_order.id
             for line in self.estimate_lines.filtered(lambda l: not l.display_type):
                 line_vals = {
                     'order_id': sale_order.id,
@@ -85,6 +86,8 @@ class Estimate(models.Model):
                     line_vals['tax_ids'] = [(6, 0, line.tax_ids.ids)]
                 if line.discount:
                     line_vals['discount'] = line.discount
+                if self.analytic_account_id:
+                    line_vals['analytic_distribution'] = {str(self.analytic_account_id.id): 100.0}
                 self.env['sale.order.line'].create(line_vals)
             sale_order.action_confirm()
         else:
