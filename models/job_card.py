@@ -13,7 +13,7 @@ class JobCard(models.Model):
     _order = 'id desc'
 
     def _default_name(self):
-        return 'JOB-%07d' % (int(self.search([], order='name desc', limit=1).name[4:] or 0) + 1 if self.search([], order='name desc', limit=1) and self.search([], order='name desc', limit=1).name and self.search([], order='name desc', limit=1).name.startswith('JOB-') else 1)
+        return 'JOB-1%03d' % (int(self.search([], order='name desc', limit=1).name[4:] or 0) + 1 if self.search([], order='name desc', limit=1) and self.search([], order='name desc', limit=1).name and self.search([], order='name desc', limit=1).name.startswith('JOB-') else 1)
 
     # def _default_name(self):
     #     random_part = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
@@ -22,7 +22,7 @@ class JobCard(models.Model):
     name = fields.Char(string='Job Card Number', required=True, default=_default_name)
     estimate_id = fields.Many2one('estimate', string='Estimate', required=True)
     customer_id = fields.Many2one('customer', string='First Customer', required=True)  # Changed
-    second_customer_id = fields.Many2one('customer', string='Second Customer (Insurance)', help='Added at final stage')  # Changed
+    second_customer_id = fields.Many2one('customer', string='Insurance Company', help='Added at final stage')  # Changed
     excess_percentage = fields.Float(string='Excess (%)', help='Percentage paid by first customer')
     insurance_percentage = fields.Float(string='Insurance Percentage (%)', compute='_compute_insurance_pct', store=True)
     vehicle_id = fields.Many2one('vehicle', string='Vehicle', required=True)  # Changed
@@ -87,9 +87,9 @@ class JobCard(models.Model):
             return self.estimate_id.analytic_account_id
         
         # Priority 4: From company defaults
-        if self.env.company.default_analytic_account_id:
+        if hasattr(self.env.company, 'default_analytic_account_id') and self.env.company.default_analytic_account_id:
             return self.env.company.default_analytic_account_id
-        
+
         # Priority 5: Search for a default analytic account
         default_account = self.env['account.analytic.account'].search([('active', '=', True)], limit=1)
         return default_account
@@ -204,9 +204,30 @@ class JobCard(models.Model):
     def action_approve_job_card(self):
         self.state = 'approved'
 
+    def action_start_job(self):
+        """Start job with validation for start and end dates"""
+        if not self.start_date:
+            raise UserError(_('Please set the Start Date before starting the job.'))
+        if not self.end_date:
+            raise UserError(_('Please set the End Date before starting the job.'))
+        if self.end_date <= self.start_date:
+            raise UserError(_('End Date must be after Start Date.'))
+        
+        self.state = 'in_progress'
+        return True
+
     def action_create_requisition(self):
-        if self.state != 'approved':
+        if self.state != 'draft':
             raise UserError(_('Job card must be approved before creating requisition.'))
+        
+        # Validate start and end dates before creating requisition
+        if not self.start_date:
+            raise UserError(_('Please set the Start Date before creating requisition.'))
+        if not self.end_date:
+            raise UserError(_('Please set the End Date before creating requisition.'))
+        if self.end_date <= self.start_date:
+            raise UserError(_('End Date must be after Start Date.'))
+        
         procurement = self.env['procurement'].create({
             'job_card_id': self.id,
             'analytic_account_id': self.analytic_account_id.id,

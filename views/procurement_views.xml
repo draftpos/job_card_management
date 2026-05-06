@@ -27,7 +27,7 @@
                     <field name="name"/>
                     <field name="job_card_id"/>
                     <field name="analytic_account_id"/>
-                    <group string="Procurement Lines">
+                    <group col="1" string="Procurement Lines">
                         <field name="procurement_lines" widget="section_and_note_one2many" nolabel="1">
                             <list editable="bottom">
                                 <control>

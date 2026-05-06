@@ -151,21 +151,25 @@
                     <field name="state" widget="statusbar"/>
                 </header>
                 <sheet>
+                <group col="2">
                     <group col="1" string="Estimate Details">
                         <label for="name" string=""/>
                         <label for="name" string="Estimate"/>
                         <field name="name" nolabel="1"/>
                         <label for="customer_id" string="Customer"/>
                         <field name="customer_id" nolabel="1"/>
+                    </group>
+                    <group col="1" string="Vehicle Details">
+                        <label for="name" string=""/>
+                    
                         <label for="vehicle_id" string="Vehicle"/>
                         <field name="vehicle_id" nolabel="1"/>
                         <label for="vehicle_name" string="Vehicle Name"/>
                         <field name="vehicle_name" nolabel="1" readonly="1"/>
                         <label for="vehicle_model" string="Vehicle Model"/>
                         <field name="vehicle_model" nolabel="1" readonly="1"/>
-                        <label for="analytic_account_id" string="Analytic Account"/>
-                        <field name="analytic_account_id" nolabel="1"/>
                     </group>
+                </group>
                     <notebook>
                         <page string="Order Lines" name="order_lines">
                             <field name="estimate_lines" widget="section_and_note_one2many" nolabel="1">

@@ -10,7 +10,7 @@ class Estimate(models.Model):
     _order = 'id desc'
     
     def _default_name(self):
-        return 'JOB-%07d' % (int(self.search([], order='name desc', limit=1).name[4:] or 0) + 1 if self.search([], order='name desc', limit=1) and self.search([], order='name desc', limit=1).name and self.search([], order='name desc', limit=1).name.startswith('JOB-') else 1)
+        return 'JOB-1%03d' % (int(self.search([], order='name desc', limit=1).name[4:] or 0) + 1 if self.search([], order='name desc', limit=1) and self.search([], order='name desc', limit=1).name and self.search([], order='name desc', limit=1).name.startswith('JOB-1') else 1)
 
     name = fields.Char(string='Estimate Number', required=True, default=_default_name, help='Unique reference for this estimate')
     customer_id = fields.Many2one('customer', string='Customer', required=True, help='Select the customer for this estimate')
@@ -103,7 +103,6 @@ class Estimate(models.Model):
             'estimate_id': self.id,
             'customer_id': self.customer_id.id,
             'vehicle_id': self.vehicle_id.id,
-            'analytic_account_id': self.analytic_account_id.id,
         })
         for line in self.estimate_lines:
             line_vals = {

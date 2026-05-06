@@ -10,8 +10,7 @@ class Procurement(models.Model):
     _order = 'id desc'
 
     def _default_name(self):
-        random_part = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-        return 'PRC-%s-TEX' % random_part
+        return 'JOB-1%03d' % (int(self.search([], order='name desc', limit=1).name[4:] or 0) + 1 if self.search([], order='name desc', limit=1) and self.search([], order='name desc', limit=1).name and self.search([], order='name desc', limit=1).name.startswith('JOB-') else 1)
 
     name = fields.Char(string='Requisition Number', required=True, default=_default_name)
     job_card_id = fields.Many2one('job.card', string='Job Card', required=True)
