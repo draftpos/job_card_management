@@ -73,22 +73,30 @@ class JobCard(models.Model):
         """
         Create a new analytic account for this job card using the job card number.
         """
-        # Get the default analytic plan
         try:
-            project_plan, _other_plans = self.env['account.analytic.plan']._get_all_plans()
-        except UserError:
-            # If no project plan is configured, create one or use the first available plan
-            project_plan = self.env['account.analytic.plan'].search([], limit=1)
+            # Get the default analytic plan
+            try:
+                project_plan, _other_plans = self.env['account.analytic.plan']._get_all_plans()
+            except UserError:
+                # If no project plan is configured, create one or use the first available plan
+                project_plan = self.env['account.analytic.plan'].search([], limit=1)
+                if not project_plan:
+                    project_plan = self.env['account.analytic.plan'].create({'name': 'Default'})
+            
             if not project_plan:
-                project_plan = self.env['account.analytic.plan'].create({'name': 'Default'})
-        
-        # Create a new analytic account with the job card name
-        analytic_account = self.env['account.analytic.account'].create({
-            'name': self.name,
-            'plan_id': project_plan.id,
-        })
-        
-        return analytic_account
+                _logger.warning("No analytic plan found. Cannot create analytic account.")
+                return None
+            
+            # Create a new analytic account with the job card name
+            analytic_account = self.env['account.analytic.account'].create({
+                'name': self.name,
+                'plan_id': project_plan.id,
+            })
+            
+            return analytic_account
+        except Exception as e:
+            _logger.error(f"Error creating analytic account for job card {self.name}: {str(e)}")
+            return None
 
     # NEW: Method to create invoices
     def _create_invoices(self):
