@@ -71,23 +71,29 @@ class Estimate(models.Model):
                 'origin': self.name,
             })
             self.sale_order_id = sale_order.id
-            for line in self.estimate_lines.filtered(lambda l: not l.display_type):
+            for line in self.estimate_lines:
                 line_vals = {
                     'order_id': sale_order.id,
-                    'name': line.name or (line.product_id.name if line.product_id else ''),
-                    'product_uom_qty': line.quantity,
-                    'price_unit': line.unit_price,
                 }
-                if line.product_id:
-                    line_vals['product_id'] = line.product_id.id
-                if line.product_uom_id:
-                    line_vals['product_uom_id'] = line.product_uom_id.id
-                if line.tax_ids:
-                    line_vals['tax_ids'] = [(6, 0, line.tax_ids.ids)]
-                if line.discount:
-                    line_vals['discount'] = line.discount
-                if self.analytic_account_id:
-                    line_vals['analytic_distribution'] = {str(self.analytic_account_id.id): 100.0}
+                # Handle section and note lines
+                if line.display_type:
+                    line_vals['display_type'] = line.display_type
+                    line_vals['name'] = line.name
+                else:
+                    # Handle product lines
+                    line_vals['name'] = line.name or (line.product_id.name if line.product_id else '')
+                    line_vals['product_uom_qty'] = line.quantity
+                    line_vals['price_unit'] = line.unit_price
+                    if line.product_id:
+                        line_vals['product_id'] = line.product_id.id
+                    if line.product_uom_id:
+                        line_vals['product_uom_id'] = line.product_uom_id.id
+                    if line.tax_ids:
+                        line_vals['tax_ids'] = [(6, 0, line.tax_ids.ids)]
+                    if line.discount:
+                        line_vals['discount'] = line.discount
+                    if self.analytic_account_id:
+                        line_vals['analytic_distribution'] = {str(self.analytic_account_id.id): 100.0}
                 self.env['sale.order.line'].create(line_vals)
             sale_order.action_confirm()
         else:

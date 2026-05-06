@@ -154,30 +154,39 @@ class JobCard(models.Model):
 
     # NEW: Helper method to prepare invoice lines
     def _prepare_invoice_lines(self, invoice_type, income_account):
-        """Prepare invoice lines for either customer or insurance"""
+        """Prepare invoice lines for either customer or insurance, including sections"""
         lines = []
         
-        for line in self.job_card_lines.filtered(lambda l: not l.display_type and l.price_total > 0):
-            if invoice_type == 'customer':
-                price = line.price_total * (self.excess_percentage / 100)
-            else:  # insurance
-                price = line.price_total * (self.insurance_percentage / 100)
-            
-            if price > 0:
+        for line in self.job_card_lines:
+            # Include section headers and notes as-is
+            if line.display_type:
                 invoice_line_vals = {
-                    'name': line.name or (line.product_id.name if line.product_id else 'Job Card Service'),
-                    'quantity': line.quantity,
-                    'price_unit': price / line.quantity if line.quantity > 0 else price,
-                    'account_id': income_account.id,
+                    'display_type': line.display_type,
+                    'name': line.name,
                 }
-                
-                # Assign analytic account to invoice line if available
-                if self.analytic_account_id:
-                    invoice_line_vals['analytic_distribution'] = {
-                        str(self.analytic_account_id.id): 100.0
-                    }
-                
                 lines.append((0, 0, invoice_line_vals))
+            # Include product lines with split amounts
+            elif line.price_total > 0:
+                if invoice_type == 'customer':
+                    price = line.price_total * (self.excess_percentage / 100)
+                else:  # insurance
+                    price = line.price_total * (self.insurance_percentage / 100)
+                
+                if price > 0:
+                    invoice_line_vals = {
+                        'name': line.name or (line.product_id.name if line.product_id else 'Job Card Service'),
+                        'quantity': line.quantity,
+                        'price_unit': price / line.quantity if line.quantity > 0 else price,
+                        'account_id': income_account.id,
+                    }
+                    
+                    # Assign analytic account to invoice line if available
+                    if self.analytic_account_id:
+                        invoice_line_vals['analytic_distribution'] = {
+                            str(self.analytic_account_id.id): 100.0
+                        }
+                    
+                    lines.append((0, 0, invoice_line_vals))
         
         return lines
 
@@ -274,80 +283,12 @@ class JobCard(models.Model):
         if not self.excess_percentage:
             raise UserError(_('Please set the Excess percentage.'))
         
-        # Create invoice from the sales order of the estimate
-        if self.estimate_id and self.estimate_id.sale_order_id:
-            sale_order = self.estimate_id.sale_order_id
-            
-            # Update sales order lines with job card's analytic account
-            if self.analytic_account_id:
-                for line in sale_order.order_line:
-                    if line.product_id:  # Only update product lines, not sections/notes
-                        line.analytic_distribution = {str(self.analytic_account_id.id): 100.0}
-            
-            invoices = sale_order._create_invoices()
-            for invoice in invoices:
-                invoice.action_post()
-        
-        # NEW: Create invoices if not already created
+        # Create split invoices (customer and insurance)
         if not self.invoice_created:
             self._create_invoices()
         
-        # Find income account
-        income_account = self.env['account.account'].search([('account_type', '=', 'income')], limit=1)
-        if not income_account:
-            raise UserError(_('No income account configured. Please set up an income account in Accounting.'))
-        
-        # Create invoice for customer (excess amount) - only if not already created
-        if not self.customer_invoice_id:
-            customer_lines = []
-            for line in self.job_card_lines.filtered(lambda l: not l.display_type and l.price_total > 0):
-                customer_price = line.price_total * (self.excess_percentage / 100)
-                if customer_price > 0:
-                    invoice_line_vals = {
-                        'name': line.name or (line.product_id.name if line.product_id else 'Job Card Service'),
-                        'quantity': line.quantity,
-                        'price_unit': customer_price / line.quantity if line.quantity > 0 else customer_price,
-                        'account_id': income_account.id,
-                    }
-                    if self.analytic_account_id:
-                        invoice_line_vals['analytic_distribution'] = {str(self.analytic_account_id.id): 100.0}
-                    customer_lines.append((0, 0, invoice_line_vals))
-            if customer_lines and self.customer_id.partner_id:
-                customer_invoice = self.env['account.move'].create({
-                    'move_type': 'out_invoice',
-                    'partner_id': self.customer_id.partner_id.id,
-                    'invoice_origin': self.name,
-                    'invoice_line_ids': customer_lines,
-                })
-                customer_invoice.action_post()
-                self.customer_invoice_id = customer_invoice.id
-        
-        # Create invoice for insurance (insurance portion) - only if not already created
-        if not self.insurance_invoice_id:
-            insurance_lines = []
-            for line in self.job_card_lines.filtered(lambda l: not l.display_type and l.price_total > 0):
-                insurance_price = line.price_total * (self.insurance_percentage / 100)
-                if insurance_price > 0:
-                    line_vals = {
-                        'name': line.name or (line.product_id.name if line.product_id else 'Job Card Service'),
-                        'quantity': line.quantity,
-                        'price_unit': insurance_price / line.quantity if line.quantity > 0 else insurance_price,
-                        'account_id': income_account.id,
-                    }
-                    if self.analytic_account_id:
-                        line_vals['analytic_distribution'] = {str(self.analytic_account_id.id): 100.0}
-                    insurance_lines.append((0, 0, line_vals))
-            if insurance_lines and self.second_customer_id.partner_id:
-                insurance_invoice = self.env['account.move'].create({
-                    'move_type': 'out_invoice',
-                    'partner_id': self.second_customer_id.partner_id.id,
-                    'invoice_origin': self.name,
-                    'invoice_line_ids': insurance_lines,
-                })
-                insurance_invoice.action_post()
-                self.insurance_invoice_id = insurance_invoice.id
-        
         self.state = 'delivered'
+        return self.action_view_invoices()
     
     # NEW: Action to view created invoices
     def action_view_invoices(self):
@@ -361,7 +302,7 @@ class JobCard(models.Model):
             'name': _('Invoices'),
             'res_model': 'account.move',
             'domain': [('id', 'in', invoices.ids)],
-            'view_mode': 'tree,form',
+            'view_mode': 'list,form',
             'target': 'current',
         }
     
