@@ -71,28 +71,24 @@ class JobCard(models.Model):
     # NEW: Method to fetch analytic account
     def _fetch_analytic_account(self):
         """
-        Fetch analytic account based on various criteria.
-        Override this method to implement your specific logic.
+        Create a new analytic account for this job card using the job card number.
         """
-        # Priority 1: From customer
-        if self.customer_id and hasattr(self.customer_id, 'analytic_account_id') and self.customer_id.analytic_account_id:
-            return self.customer_id.analytic_account_id
+        # Get the default analytic plan
+        try:
+            project_plan, _other_plans = self.env['account.analytic.plan']._get_all_plans()
+        except UserError:
+            # If no project plan is configured, create one or use the first available plan
+            project_plan = self.env['account.analytic.plan'].search([], limit=1)
+            if not project_plan:
+                project_plan = self.env['account.analytic.plan'].create({'name': 'Default'})
         
-        # Priority 2: From vehicle
-        if self.vehicle_id and hasattr(self.vehicle_id, 'analytic_account_id') and self.vehicle_id.analytic_account_id:
-            return self.vehicle_id.analytic_account_id
+        # Create a new analytic account with the job card name
+        analytic_account = self.env['account.analytic.account'].create({
+            'name': self.name,
+            'plan_id': project_plan.id,
+        })
         
-        # Priority 3: From estimate
-        if self.estimate_id and hasattr(self.estimate_id, 'analytic_account_id') and self.estimate_id.analytic_account_id:
-            return self.estimate_id.analytic_account_id
-        
-        # Priority 4: From company defaults
-        if hasattr(self.env.company, 'default_analytic_account_id') and self.env.company.default_analytic_account_id:
-            return self.env.company.default_analytic_account_id
-
-        # Priority 5: Search for a default analytic account
-        default_account = self.env['account.analytic.account'].search([('active', '=', True)], limit=1)
-        return default_account
+        return analytic_account
 
     # NEW: Method to create invoices
     def _create_invoices(self):
@@ -126,6 +122,10 @@ class JobCard(models.Model):
             })
             customer_invoice.action_post()
             self.customer_invoice_id = customer_invoice.id
+            
+            # Update analytic account name with invoice number
+            if self.analytic_account_id:
+                self.analytic_account_id.name = customer_invoice.name
         
         # Create invoice for insurance (insurance portion)
         insurance_lines = self._prepare_invoice_lines('insurance', income_account)
@@ -217,8 +217,8 @@ class JobCard(models.Model):
         return True
 
     def action_create_requisition(self):
-        if self.state != 'draft':
-            raise UserError(_('Job card must be approved before creating requisition.'))
+        if self.state not in ['approved', 'in_progress']:
+            raise UserError(_('Job card must be approved or in progress before creating requisition.'))
         
         # Validate start and end dates before creating requisition
         if not self.start_date:
@@ -269,6 +269,13 @@ class JobCard(models.Model):
         # Create invoice from the sales order of the estimate
         if self.estimate_id and self.estimate_id.sale_order_id:
             sale_order = self.estimate_id.sale_order_id
+            
+            # Update sales order lines with job card's analytic account
+            if self.analytic_account_id:
+                for line in sale_order.order_line:
+                    if line.product_id:  # Only update product lines, not sections/notes
+                        line.analytic_distribution = {str(self.analytic_account_id.id): 100.0}
+            
             invoices = sale_order._create_invoices()
             for invoice in invoices:
                 invoice.action_post()
