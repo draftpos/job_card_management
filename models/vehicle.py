@@ -60,3 +60,10 @@ class Vehicle(models.Model):
                 ('vehicle_id', '=', vehicle.id),
                 ('state', '=', 'delivered')
             ], order='create_date desc')
+    
+    def action_preview_vehicle_history(self):
+        return {
+            'type': 'ir.actions.act_url',
+            'url': f'/job_card_management/report/view/vehicle/{self.id}/job_card_management.action_report_vehicle_history/Vehicle%20History',
+            'target': 'self',
+        }

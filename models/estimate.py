@@ -144,6 +144,12 @@ class Estimate(models.Model):
             'view_mode': 'form',
         }
 
+    def action_preview_estimate(self):
+        return {
+            'type': 'ir.actions.act_url',
+            'url': f'/job_card_management/report/view/estimate/{self.id}/job_card_management.action_report_estimate/Estimate%20Report',
+            'target': 'self',
+        }
 class EstimateLine(models.Model):
     _name = 'estimate.line'
     _description = 'Estimate Line'

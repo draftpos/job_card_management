@@ -356,7 +356,19 @@ class JobCard(models.Model):
         return dashboard.get_overdue_jobs(
             user_id=user_id, date_from=date_from, date_to=date_to
         )
+    def action_preview_job_card(self):
+        return {
+            'type': 'ir.actions.act_url',
+            'url': f'/job_card_management/report/view/job.card/{self.id}/job_card_management.report_job_card/Job%20Card',
+            'target': 'self',
+        }
 
+    def action_preview_pick_slip(self):
+        return {
+            'type': 'ir.actions.act_url',
+            'url': f'/job_card_management/report/view/job.card/{self.id}/job_card_management.report_job_card_pick_slip/Pick%20Slip',
+            'target': 'self',
+        }
 
 class JobCardLine(models.Model):
     _name = 'job.card.line'

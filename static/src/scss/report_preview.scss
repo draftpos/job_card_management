@@ -1,0 +1,52 @@
+.jc-loader-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(15, 23, 42, 0.7);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10001;
+    animation: jcFadeIn 0.2s ease-out;
+}
+
+@keyframes jcFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.jc-loader-card {
+    background: #ffffff;
+    padding: 40px 50px;
+    border-radius: 20px;
+    text-align: center;
+    box-shadow: 0 32px 80px rgba(0, 0, 0, 0.3);
+    position: relative;
+    min-width: 300px;
+}
+
+.jc-loader-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #495057;
+    margin-top: 8px;
+}
+
+.jc-loader-close {
+    position: absolute;
+    top: 12px; right: 14px;
+    background: rgba(0,0,0,0.05);
+    border: none;
+    color: #868e96;
+    font-size: 18px;
+    cursor: pointer;
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+
+    &:hover { background: rgba(0,0,0,0.1); color: #333; }
+}
