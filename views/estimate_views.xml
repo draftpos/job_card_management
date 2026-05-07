@@ -1,147 +1,100 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- ============================================================ -->
-    <!-- QWeb Report Template -->
-    <!-- ============================================================ -->
     <template id="estimates_report">
         <t t-call="web.html_container">
             <t t-foreach="docs" t-as="doc">
                 <t t-call="web.external_layout">
                     <div class="page">
-                        <div class="oe_structure"/>
-                        <div class="row">
-                            <div class="col-12">
-                                <h1>Estimate Report</h1>
-                                <h2 t-field="doc.name"/>
-                            </div>
-                        </div>
-                        <div class="row mt-4">
-                            <div class="col-6">
-                                <strong>Customer:</strong>
-                                <span t-field="doc.customer_id.name"/>
-                            </div>
-                            <div class="col-6">
-                                <strong>Date:</strong>
-                                <span t-if="doc.create_date" t-field="doc.create_date"/>
-                            </div>
-                        </div>
-                        <div class="row mt-2">
-                            <div class="col-6">
-                                <strong>Vehicle:</strong>
-                                <span t-field="doc.vehicle_id.name"/>
-                            </div>
-                            <div class="col-6">
-                                <strong>Vehicle Model:</strong>
-                                <span t-field="doc.vehicle_model"/>
-                            </div>
-                        </div>
-                        <div class="row mt-2">
-                            <div class="col-6">
-                                <strong>Analytic Account:</strong>
-                                <span t-if="doc.analytic_account_id" t-field="doc.analytic_account_id.name"/>
-                            </div>
-                            <div class="col-6">
-                                <strong>Vehicle ID:</strong>
-                                <span t-field="doc.vehicle_id.registration_number"/>
-                            </div>
-                        </div>
-                        <div class="row mt-2">
-                            <div class="col-6">
-                                <strong>Estimator:</strong>
-                                <span t-field="env.user.name"/>
-                            </div>
+
+                        <!-- Header -->
+                        <div style="background-color: #1a1a2e; padding: 30px 40px; font-family: Arial, sans-serif; margin: -20px -20px 0 -20px;">
+                            <div style="color: #ffffff; font-size: 13px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px;">Estimate Report</div>
+                            <div style="color: #e0e4f0; font-size: 20px; font-weight: bold;" t-field="doc.name"/> 
                         </div>
 
-                        <div class="row mt-4" id="estimate_lines" style="page-break-inside: auto;">
-                            <div class="col-12">
-                                <h3>Estimate Lines</h3>
-                                <div name="sol_table" class="table-responsive">
-                                    <table class="table table-sm" id="estimate_table">
-                                        <thead style="color: red;">
-                                            <tr>
-                                                <th class="text-start" id="product_name_header"><strong>Products</strong></th>
-                                                <th class="text-end" id="product_qty_header"><strong>Quantity</strong></th>
-                                                <th id="product_unit_price_header" class="text-end d-none d-sm-table-cell"><strong>Unit Price</strong></th>
-                                                <th class="text-end" id="product_discount_header"><strong>Discount</strong></th>
-                                                <th class="text-end" id="subtotal_header"><strong>Subtotal</strong></th>
-                                                <th class="text-end" id="amount_header"><strong>Amount</strong></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="estimate_tbody">
-                                            <t t-foreach="doc.estimate_lines" t-as="line">
-                                                <tr t-if="line.display_type == 'line_section'" class="o_line_section" style="color: red;">
-                                                    <td colspan="6"><strong t-field="line.name"/></td>
-                                                </tr>
-                                                <tr t-elif="line.display_type == 'line_note'" class="o_line_note">
-                                                    <td colspan="6"><em t-field="line.name"/></td>
-                                                </tr>
-                                                <tr t-else="" name="tr_product">
-                                                    <td name="td_product_name" class="">
-                                                        <span name="span_product_name" t-field="line.product_id.name"/>
-                                                    </td>
-                                                    <td name="td_product_quantity" class="text-end">
-                                                        <div>
-                                                            <span t-esc="'{:.2f}'.format(line.quantity)"/>
-                                                            <span> </span>
-                                                            <span t-field="line.product_uom_id.name"/>
-                                                        </div>
-                                                    </td>
-                                                    <td name="td_product_priceunit" class="text-end d-none d-sm-table-cell">
-                                                        <div class="text-end">
-                                                            <span t-esc="'$ {:.2f}'.format(line.unit_price)"/>
-                                                        </div>
-                                                    </td>
-                                                    <td name="td_product_discount" class="text-end">
-                                                        <span t-esc="'{:.2f}'.format(line.discount)"/><t t-if="line.discount">%</t>
-                                                    </td>
-                                                    <td name="td_product_subtotal" class="text-end">
-                                                        <span t-esc="'$ {:.2f}'.format(line.price_subtotal)"/>
-                                                    </td>
-                                                    <td name="td_product_amount" class="text-end">
-                                                        <span t-esc="'$ {:.2f}'.format(line.price_total)"/>
-                                                    </td>
-                                                </tr>
-                                            </t>
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                <div id="total" name="total" style="page-break-inside: avoid;">
-                                    <div class="col-xs-7 col-md-5 ms-auto">
-                                        <table class="table table-sm" name="estimate_totals_table">
-                                            <tbody>
-                                                <t t-if="doc.amount_untaxed">
-                                                    <tr class="o_subtotal">
-                                                        <td><span>Untaxed Amount</span></td>
-                                                        <td class="text-end"><span t-esc="'$ {:.2f}'.format(doc.amount_untaxed)"/></td>
-                                                    </tr>
-                                                </t>
-                                                <t t-if="doc.amount_tax">
-                                                    <tr class="o_taxes">
-                                                        <td style="max-width: 200px;"><span>Tax Amount</span></td>
-                                                        <td class="text-end o_price_total"><span class="text-nowrap"><t t-esc="'$ {:.2f}'.format(doc.amount_tax)"/></span></td>
-                                                    </tr>
-                                                </t>
-                                                <tr class="o_total">
-                                                    <td><strong>Total</strong></td>
-                                                    <td class="text-end"><strong><span t-esc="'$ {:.2f}'.format(doc.amount_total)"/></strong></td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
+                        <!-- Info Section -->
+                        <div style="padding: 28px 40px; background-color: #f8f9fb; margin: 0 -20px;">
+                            <table style="width: 100%; border: none; border-collapse: collapse;">
+                                <tr>
+                                    <td style="border: none; padding: 14px 20px; width: 50%; vertical-align: top;">
+                                        <div style="font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 1.5px; font-weight: bold; margin-bottom: 6px;">Customer</div>
+                                        <div style="font-size: 18px; color: #1a1a2e; font-weight: bold;" t-field="doc.customer_id.name"/> 
+                                    </td>
+                                    <td style="border: none; padding: 14px 20px; width: 50%; vertical-align: top;">
+                                        <div style="font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 1.5px; font-weight: bold; margin-bottom: 6px;">Date</div>
+                                        <div style="font-size: 18px; color: #1a1a2e; font-weight: bold;" t-field="doc.create_date"/> 
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="border: none; padding: 14px 20px; vertical-align: top;">
+                                        <div style="font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 1.5px; font-weight: bold; margin-bottom: 6px;">Vehicle</div>
+                                        <div style="font-size: 18px; color: #1a1a2e; font-weight: bold;" t-field="doc.vehicle_id.name"/> 
+                                    </td>
+                                    <td style="border: none; padding: 14px 20px; vertical-align: top;">
+                                        <div style="font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 1.5px; font-weight: bold; margin-bottom: 6px;">Vehicle Model</div>
+                                        <div style="font-size: 18px; color: #1a1a2e; font-weight: bold;" t-field="doc.vehicle_model"/> 
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="border: none; padding: 14px 20px; vertical-align: top;">
+                                        <div style="font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 1.5px; font-weight: bold; margin-bottom: 6px;">Vehicle ID</div>
+                                        <div style="font-size: 18px; color: #1a1a2e; font-weight: bold;" t-field="doc.vehicle_id.registration_number"/> 
+                                    </td>
+                                    <td style="border: none; padding: 14px 20px; vertical-align: top;">
+                                        <div style="font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 1.5px; font-weight: bold; margin-bottom: 6px;">Estimator</div>
+                                        <div style="font-size: 18px; color: #1a1a2e; font-weight: bold;" t-field="env.user.name"/> 
+                                    </td>
+                                </tr>
+                            </table>
                         </div>
+
+                        <!-- Lines Table -->
+                        <div style="padding: 30px 40px;">
+                            <h3 style="font-size: 13px; font-weight: bold; color: #1a1a2e; margin: 0 0 20px 0; padding-bottom: 10px; border-bottom: 4px solid #1a1a2e; text-transform: uppercase; letter-spacing: 2px;">Estimate Lines</h3>
+
+                            <table style="width: 100%; border: none; border-collapse: collapse;">
+                                <thead>
+                                    <tr style="background-color: #1a1a2e;">
+                                        <th style="border: none; padding: 16px 20px; text-align: left; font-size: 12px; color: #ffffff; text-transform: uppercase; letter-spacing: 1.5px; font-weight: bold; background-color: #1a1a2e; width: 35%;">Products</th>
+                                        <th style="border: none; padding: 16px 20px; text-align: right; font-size: 12px; color: #ffffff; text-transform: uppercase; letter-spacing: 1.5px; font-weight: bold; background-color: #1a1a2e; width: 20%;">Quantity</th>
+                                        <th style="border: none; padding: 16px 20px; text-align: right; font-size: 12px; color: #ffffff; text-transform: uppercase; letter-spacing: 1.5px; font-weight: bold; background-color: #1a1a2e; width: 12%;">Discount</th>
+                                        <th style="border: none; padding: 16px 20px; text-align: right; font-size: 12px; color: #ffffff; text-transform: uppercase; letter-spacing: 1.5px; font-weight: bold; background-color: #1a1a2e; width: 15%;">Subtotal</th>
+                                        <th style="border: none; padding: 16px 20px; text-align: right; font-size: 12px; color: #ffffff; text-transform: uppercase; letter-spacing: 1.5px; font-weight: bold; background-color: #1a1a2e; width: 18%;">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="doc.estimate_lines" t-as="line">
+                                        <tr t-if="line.display_type == 'line_section'" style="background-color: #f1f3f5;">
+                                            <td colspan="5" style="border: none; padding: 16px 20px; font-size: 18px; font-weight: bold; color: #1a1a2e; text-transform: uppercase; letter-spacing: 1px;"><t t-out="line.name"/></td>
+                                        </tr>
+                                        <tr t-elif="line.display_type == 'line_note'" style="background-color: #ffffff;">
+                                            <td colspan="5" style="border: none; padding: 16px 20px; font-size: 16px; color: #bbbbbb; font-style: italic;"><t t-out="line.name"/></td>
+                                        </tr>
+                                        <tr t-else="" style="background-color: #ffffff;">
+                                            <td style="border: none; padding: 16px 20px; font-size: 18px; color: #1a1a2e; font-weight: bold;"><span t-field="line.product_id.name"/></td>
+                                            <td style="border: none; padding: 16px 20px; font-size: 16px; color: #555; text-align: right;"><span t-esc="line.quantity"/> <span style="color: #aaa; font-size: 13px;" t-field="line.product_uom_id.name"/></td>
+                                            <td style="border: none; padding: 16px 20px; font-size: 16px; color: #555; text-align: right;"><t t-if="line.discount"><span t-esc="line.discount"/>%</t><t t-else="">—</t></td>
+                                            <td style="border: none; padding: 16px 20px; font-size: 18px; color: #555; text-align: right;"><span t-esc="'$ {:.2f}'.format(line.price_subtotal)"/></td>
+                                            <td style="border: none; padding: 16px 20px; font-size: 18px; color: #1a1a2e; text-align: right; font-weight: bold;"><span t-esc="'$ {:.2f}'.format(line.price_total)"/></td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                                <tfoot>
+                                    <tr style="background-color: #f1f3f5;">
+                                        <td colspan="4" style="border: none; padding: 20px 20px; font-size: 22px; font-weight: bold; color: #1a1a2e; text-align: right; text-transform: uppercase; letter-spacing: 1px;">Total</td>
+                                        <td style="border: none; padding: 20px 20px; font-size: 22px; font-weight: bold; color: #1a1a2e; text-align: right;"><span t-esc="'$ {:.2f}'.format(doc.amount_total)"/></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                        
                     </div>
                 </t>
             </t>
         </t>
     </template>
 
-    <!-- ============================================================ -->
-    <!-- REPORT ACTION -->
-    <!-- ============================================================ -->
     <record id="action_report_estimate" model="ir.actions.report">
         <field name="name">Estimate Report PDF</field>
         <field name="model">estimate</field>
@@ -151,18 +104,12 @@
         <field name="print_report_name">'Estimate Report - %s' % object.name</field>
     </record>
 
-    <!-- ============================================================ -->
-    <!-- ACTION WINDOW -->
-    <!-- ============================================================ -->
     <record id="action_estimate" model="ir.actions.act_window">
         <field name="name">Estimates</field>
         <field name="res_model">estimate</field>
         <field name="view_mode">list,form</field>
     </record>
 
-    <!-- ============================================================ -->
-    <!-- FORM VIEW -->
-    <!-- ============================================================ -->
     <record id="view_estimate_form" model="ir.ui.view">
         <field name="name">estimate.form</field>
         <field name="model">estimate</field>
@@ -178,19 +125,12 @@
                 <sheet>
                 <group col="2">
                     <group col="1" string="Estimate Details">
-                        <label for="name" string=""/>
-                        <label for="name" string="Estimate"/>
                         <field name="name" nolabel="1"/>
-                        <label for="customer_id" string="Customer"/>
                         <field name="customer_id" nolabel="1"/>
                     </group>
                     <group col="1" string="Vehicle Details">
-                        <label for="name" string=""/>
-                        <label for="vehicle_id" string="Vehicle"/>
                         <field name="vehicle_id" nolabel="1"/>
-                        <label for="vehicle_name" string="Vehicle Name"/>
                         <field name="vehicle_name" nolabel="1" readonly="1"/>
-                        <label for="vehicle_model" string="Vehicle Model"/>
                         <field name="vehicle_model" nolabel="1" readonly="1"/>
                     </group>
                 </group>
@@ -217,34 +157,16 @@
                                 </list>
                             </field>
                         </page>
-                        <page string="Other Info" name="other_info">
-                            <group>
-                                <group string="Customer Signature">
-                                </group>
-                            </group>
-                        </page>
                     </notebook>
                     <table class="float-end">
                         <tbody>
                             <tr>
-                                <td class="o_td_label">
-                                    <label for="amount_untaxed" class="o_form_label o_tax_total_label">Untaxed Amount</label>
-                                </td>
-                                <td class="o_list_monetary">
-                                    <span class="fw-bold">
-                                        <field name="amount_untaxed" widget="monetary" readonly="1"/>
-                                    </span>
-                                </td>
+                                <td class="o_td_label"><label for="amount_untaxed">Untaxed Amount</label></td>
+                                <td><field name="amount_untaxed" widget="monetary" readonly="1"/></td>
                             </tr>
                             <tr>
-                                <td class="o_td_label">
-                                    <label for="amount_total" class="o_form_label o_tax_total_label">Total</label>
-                                </td>
-                                <td class="o_list_monetary">
-                                    <span class="fw-bold" style="font-size: 1.3em;">
-                                        <field name="amount_total" widget="monetary" readonly="1"/>
-                                    </span>
-                                </td>
+                                <td class="o_td_label"><label for="amount_total">Total</label></td>
+                                <td><field name="amount_total" widget="monetary" readonly="1"/></td>
                             </tr>
                         </tbody>
                     </table>
@@ -253,9 +175,6 @@
         </field>
     </record>
 
-    <!-- ============================================================ -->
-    <!-- LIST VIEW -->
-    <!-- ============================================================ -->
     <record id="view_estimate_list" model="ir.ui.view">
         <field name="name">estimate.list</field>
         <field name="model">estimate</field>

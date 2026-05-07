@@ -25,13 +25,11 @@
             'job_card_management/static/src/js/job_card_dashboard.js',
             'job_card_management/static/src/xml/job_card_dashboard.xml',
             'job_card_management/static/src/scss/report_preview.scss',
-            # 'job_card_management/static/src/js/report_preview.js',
+          
           
          
         ],
-        'web.report_assets_pdf': [
-            'job_card_management/static/src/scss/report_styles_job_card.scss',
-    ],
+   
     },
     'installable': True,
     'application': True,

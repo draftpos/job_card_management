@@ -4,3 +4,5 @@ models/__pycache__/
 *.pyo
 *.pyd
 .DS_Store
+config.bat
+node_modules
