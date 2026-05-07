@@ -7,15 +7,15 @@
         'security/job_card_groups.xml',
         'security/ir.model.access.csv',
         'reports/job_card_report.xml',
-        'views/menu_views.xml',
         'views/technician_views.xml',
         'views/customer_views.xml',
         'views/vehicle_views.xml',
         'views/estimate_views.xml',
         'views/job_card_views.xml',
-        'views/job_card_dashboard_views.xml',
         'views/procurement_views.xml',
         'views/job_card_profitability_views.xml',
+        'views/menu_views.xml',
+        'views/job_card_dashboard_views.xml',
     ],
     'assets': {
         'web.assets_backend': [
