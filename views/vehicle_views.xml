@@ -35,7 +35,7 @@
         <field name="arch" type="xml">
             <form>
                 <header>
-                    <button name="job_card_management.action_report_vehicle_history" string="Print Vehicle History" type="action" class="btn-secondary"/>
+                   <button name="action_preview_vehicle_history" string="Print Vehicle History" type="object" class="btn-secondary"/>
                 </header>
                 <sheet>
                     <group>

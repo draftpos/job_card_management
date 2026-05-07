@@ -1,4 +1,5 @@
 from . import models
+from . import controllers
 
 def create_access_rights(env):
     """Create access rights after module installation"""

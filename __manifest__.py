@@ -17,13 +17,21 @@
         'views/job_card_profitability_views.xml',
         'views/menu_views.xml',
         'views/job_card_dashboard_views.xml',
+        'views/report_preview_template.xml',
     ],
     'assets': {
         'web.assets_backend': [
             'job_card_management/static/src/scss/job_card_dashboard.scss',
             'job_card_management/static/src/js/job_card_dashboard.js',
             'job_card_management/static/src/xml/job_card_dashboard.xml',
+            'job_card_management/static/src/scss/report_preview.scss',
+            # 'job_card_management/static/src/js/report_preview.js',
+          
+         
         ],
+        'web.report_assets_pdf': [
+            'job_card_management/static/src/scss/report_styles_job_card.scss',
+    ],
     },
     'installable': True,
     'application': True,

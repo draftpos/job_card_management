@@ -10,8 +10,10 @@
                     <button name="action_approve_job_card" string="Approve Job Card" type="object" invisible="state not in ['draft']"/>
                     <button name="action_create_requisition" string="Requisition" type="object" invisible="state not in ['approved']"/>
                     <button name="action_finalize_job_card" string="Finalize Job Card" type="object" invisible="state not in ['in_progress', 'requisition_started']"/>
-                    <button name="%(job_card_management.report_job_card)d" string="Print Job Card" type="action" class="btn-secondary"/>
-                    <button name="%(job_card_management.report_job_card_pick_slip)d" string="Pick Slip" type="action" class="btn-secondary"/>
+                    <!-- <button name="%(job_card_management.report_job_card)d" string="Print Job Card" type="action" class="btn-secondary"/>
+                    <button name="%(job_card_management.report_job_card_pick_slip)d" string="Pick Slip" type="action" class="btn-secondary"/> -->
+                    <button name="action_preview_job_card" string="Print Job Card" type="object" class="btn-secondary"/>
+                    <button name="action_preview_pick_slip" string="Pick Slip" type="object" class="btn-secondary"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,approved,in_progress,completed,delivered" invisible="state == 'requisition_started'"/>
                 </header>
                 <sheet>
