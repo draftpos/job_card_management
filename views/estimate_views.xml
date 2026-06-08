@@ -185,11 +185,15 @@
         <field name="print_report_name">'Estimate - %s' % object.name</field>
     </record>
 
-    <record id="view_estimate_search" model="ir.ui.view">
-        <field name="name">estimate.search</field>
+
+
+
+
+    <record id="view_estimate_search_new" model="ir.ui.view">
+        <field name="name">estimate.search.new</field>
         <field name="model">estimate</field>
         <field name="arch" type="xml">
-            <search>
+            <search string="Estimates Search">
                 <field name="name"/>
                 <field name="customer_id"/>
                 <field name="insurance_company_id"/>
@@ -198,9 +202,9 @@
                 <filter string="Draft" name="draft" domain="[('state', '=', 'draft')]"/>
                 <filter string="Approved" name="approved" domain="[('state', '=', 'approved')]"/>
                 <group expand="0" string="Group By">
-                    <filter string="Customer" name="group_customer" domain="[]" context="{\'group_by\':\'customer_id\'}"/>
-                    <filter string="Insurance Company" name="group_insurance" domain="[]" context="{\'group_by\':\'insurance_company_id\'}"/>
-                    <filter string="Created By" name="group_create_uid" domain="[]" context="{\'group_by\':\'create_uid\'}"/>
+                    <filter string="Customer" name="group_customer" domain="[]" context="{'group_by':'customer_id'}"/>
+                    <filter string="Insurance Company" name="group_insurance" domain="[]" context="{'group_by':'insurance_company_id'}"/>
+                    <filter string="Created By" name="group_create_uid" domain="[]" context="{'group_by':'create_uid'}"/>
                     <filter string="Status" name="group_state" domain="[]" context="{'group_by':'state'}"/>
                 </group>
             </search>
@@ -211,7 +215,9 @@
         <field name="name">Quotations</field>
         <field name="res_model">estimate</field>
         <field name="view_mode">list,form</field>
-        <field name="search_view_id" ref="view_estimate_search"/>
+        <field name="search_view_id" ref="view_estimate_search_new"/>
+
+
     </record>
 
     <record id="view_estimate_form" model="ir.ui.view">
