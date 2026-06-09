@@ -23,13 +23,26 @@ class Estimate(models.Model):
     _order = 'id desc'
 
     def _default_name(self):
-        last = self.search([], order='name desc', limit=1)
-        if last and last.name and last.name.startswith('EST-'):
-            last_num = int(last.name[4:])
-            new_num = last_num + 1
-        else:
-            new_num = 1001
-        return f'EST-{new_num}'
+        """Generate next EST-XXXX number, considering both EST- and LOC-EST- prefixes."""
+        self.env.cr.execute("""
+            SELECT name FROM estimate
+            WHERE name ~ '^(LOC-)?EST-[0-9]+$'
+        """)
+        rows = self.env.cr.fetchall()
+        max_num = 1000
+        for (name,) in rows:
+            # strip optional LOC- prefix, then EST- prefix, parse the number
+            stripped = name
+            if stripped.startswith('LOC-'):
+                stripped = stripped[4:]   # remove LOC-
+            if stripped.startswith('EST-'):
+                try:
+                    num = int(stripped[4:])
+                    if num > max_num:
+                        max_num = num
+                except ValueError:
+                    pass
+        return f'EST-{max_num + 1}'
 
     name = fields.Char(
         string='Estimate Number',
