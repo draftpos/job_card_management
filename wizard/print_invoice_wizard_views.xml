@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="view_print_invoice_wizard" model="ir.ui.view">
+            <field name="name">print.invoice.wizard.form</field>
+            <field name="model">print.invoice.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Print Invoices">
+                    <field name="has_insurance" invisible="1"/>
+                    <field name="job_card_id" invisible="1"/>
+                    
+                    <group>
+                        <p class="text-muted" invisible="not has_insurance">
+                            This Job Card has both a Customer Invoice and an Insurance Invoice. Please select which invoice(s) you want to print.
+                        </p>
+                        <p class="text-muted" invisible="has_insurance">
+                            This Job Card only has a Customer Invoice.
+                        </p>
+                    </group>
+                    
+                    <group>
+                        <field name="print_selection" widget="radio" />
+                    </group>
+                    
+                    <footer>
+                        <button string="Print" name="action_print" type="object" class="btn-primary"/>
+                        <button string="Cancel" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_print_invoice_wizard" model="ir.actions.act_window">
+            <field name="name">Print Invoice(s)</field>
+            <field name="res_model">print.invoice.wizard</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+        </record>
+    </data>
+</odoo>

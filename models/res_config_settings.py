@@ -8,6 +8,17 @@ class ResConfigSettings(models.TransientModel):
         help="Default terms and conditions added to new quotations."
     )
     
+    purchase_default_terms = fields.Html(
+        string='Default Purchase Terms and Conditions',
+        help="Default terms and conditions added to new purchase orders."
+    )
+    
+    allow_service_requisition = fields.Boolean(
+        string="Allow Consumables/Sundries in Requisitions",
+        config_parameter='job_card_management.allow_service_requisition',
+        default=False
+    )
+    
     # Quotation Print Settings
     print_customer_full_details = fields.Boolean(
         string='Print Full Customer Details on Quotations',
@@ -57,14 +68,35 @@ class ResConfigSettings(models.TransientModel):
         default=False
     )
 
+    # Job Card Settings
+    job_card_billing_policy = fields.Selection([
+        ('percentage', 'Percentage'),
+        ('fixed', 'Fixed Amount')
+    ], string="Excess Billing Policy", default='percentage',
+       config_parameter='job_card_management.job_card_billing_policy')
+
+    enable_betterment = fields.Boolean(
+        string="Enable Betterment",
+        config_parameter='job_card_management.enable_betterment',
+        default=False
+    )
+
+    betterment_billing_policy = fields.Selection([
+        ('percentage', 'Percentage'),
+        ('fixed', 'Fixed Amount')
+    ], string="Betterment Billing Policy", default='percentage',
+       config_parameter='job_card_management.betterment_billing_policy')
+
     @api.model
     def get_values(self):
         res = super(ResConfigSettings, self).get_values()
         res.update(
-            job_card_default_terms=self.env['ir.config_parameter'].sudo().get_param('job_card_management.default_terms', default='')
+            job_card_default_terms=self.env['ir.config_parameter'].sudo().get_param('job_card_management.default_terms', default=''),
+            purchase_default_terms=self.env['ir.config_parameter'].sudo().get_param('job_card_management.purchase_default_terms', default='')
         )
         return res
 
     def set_values(self):
         super(ResConfigSettings, self).set_values()
         self.env['ir.config_parameter'].sudo().set_param('job_card_management.default_terms', self.job_card_default_terms or '')
+        self.env['ir.config_parameter'].sudo().set_param('job_card_management.purchase_default_terms', self.purchase_default_terms or '')

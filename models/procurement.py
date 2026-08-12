@@ -125,8 +125,21 @@ class Procurement(models.Model):
                     po_line_vals['analytic_distribution'] = {str(analytic_account.id): 100.0}
                 self.env['purchase.order.line'].create(po_line_vals)
             po.button_confirm()
-            # Automatically create draft supplier invoice
+            
+            # Auto-receive (validate all pickings/GRVs)
+            for picking in po.picking_ids:
+                if picking.state not in ['done', 'cancel']:
+                    picking.action_assign()
+                    for move in picking.move_ids:
+                        move.quantity = move.product_uom_qty
+                    picking.button_validate()
+            
+            # Automatically create draft supplier invoice and POST it
             po.action_create_invoice()
+            for invoice in po.invoice_ids:
+                if invoice.state == 'draft':
+                    invoice.action_post()
+                    
             for line in lines:
                 line.write({'purchase_order_created': True})
 

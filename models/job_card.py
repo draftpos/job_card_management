@@ -30,7 +30,7 @@ class JobCard(models.Model):
     #     return 'JOB-%s-TEX' % random_part
 
     name = fields.Char(
-        string='Job Card Number',
+        string='JOB NO:',
         required=True,
         default=_default_name,
         readonly=True,
@@ -39,10 +39,40 @@ class JobCard(models.Model):
     estimate_id = fields.Many2one('estimate', string='Estimate', required=True, readonly=True)
     customer_id = fields.Many2one('customer', string='First Customer', required=True)
     second_customer_id = fields.Many2one('customer', string='Insurance Company', help='Added at final stage')
-    order_number = fields.Char(string='Order Number')
-    claims_number = fields.Char(string='Claims Number')
+    order_number = fields.Char(string='Order NO:')
+    claims_number = fields.Char(string='Claims NO:')
     excess_percentage = fields.Float(string='Excess (%)', help='Percentage paid by first customer')
+    excess_amount = fields.Float(string='Excess AMT')
     insurance_percentage = fields.Float(string='Insurance Percentage (%)', compute='_compute_insurance_pct', store=True)
+    insurance_amount = fields.Float(string='Insurance AMT')
+
+    betterment_percentage = fields.Float(string='Betterment (%)', default=0.0)
+    betterment_amount = fields.Float(string='Betterment AMT', default=0.0)
+
+    billing_policy_setting = fields.Char(
+        string='Billing Policy',
+        compute='_compute_billing_policy_setting',
+    )
+    betterment_billing_policy_setting = fields.Char(
+        string='Betterment Billing Policy',
+        compute='_compute_billing_policy_setting',
+    )
+    enable_betterment_setting = fields.Boolean(
+        string='Betterment Enabled',
+        compute='_compute_billing_policy_setting',
+    )
+
+    @api.depends_context('uid')
+    def _compute_billing_policy_setting(self):
+        ICP = self.env['ir.config_parameter'].sudo()
+        billing_policy = ICP.get_param('job_card_management.job_card_billing_policy', 'percentage')
+        betterment_policy = ICP.get_param('job_card_management.betterment_billing_policy', 'percentage')
+        enable_betterment = ICP.get_param('job_card_management.enable_betterment', 'False') == 'True'
+        for rec in self:
+            rec.billing_policy_setting = billing_policy
+            rec.betterment_billing_policy_setting = betterment_policy
+            rec.enable_betterment_setting = enable_betterment
+
     vehicle_id = fields.Many2one(
         'vehicle',
         string='Vehicle',
@@ -51,7 +81,7 @@ class JobCard(models.Model):
     )
     vehicle_reg_number = fields.Char(
         related='vehicle_id.registration_number',
-        string='Vehicle REG Number',
+        string='REG NO:',
         readonly=True,
     )
     vehicle_model = fields.Char(related='vehicle_id.model_id.name', string='Vehicle Model', readonly=True)
@@ -77,32 +107,39 @@ class JobCard(models.Model):
     end_date = fields.Date(string='End Date Expected')
     job_card_lines = fields.One2many('job.card.line', 'job_card_id', string='Job Card Lines')
     parts_line_ids = fields.One2many(
-        'job.card.line', 'job_card_id', string='Parts Lines',
+        'job.card.line', 'parts_job_card_id', string='Supply Parts',
         domain=[('line_category', '=', 'parts')],
     )
+    consumables_line_ids = fields.One2many(
+        'job.card.line', 'consumables_job_card_id', string='Consumables',
+        domain=[('line_category', '=', 'consumables')],
+    )
     repairs_line_ids = fields.One2many(
-        'job.card.line', 'job_card_id', string='Repairs Lines',
+        'job.card.line', 'repairs_job_card_id', string='Repair Works',
         domain=[('line_category', '=', 'repairs')],
     )
     paint_line_ids = fields.One2many(
-        'job.card.line', 'job_card_id', string='Paint Lines',
+        'job.card.line', 'paint_job_card_id', string='Paint Job',
         domain=[('line_category', '=', 'paint')],
     )
+    sundries_line_ids = fields.One2many(
+        'job.card.line', 'sundries_job_card_id', string='Sundries',
+        domain=[('line_category', '=', 'sundries')],
+    )
     fittings_line_ids = fields.One2many(
-        'job.card.line', 'job_card_id', string='Fittings Lines',
+        'job.card.line', 'fittings_job_card_id', string='Fittings',
         domain=[('line_category', '=', 'fittings')],
     )
-    labour_line_ids = fields.One2many(
-        'job.card.line', 'job_card_id', string='Labour Lines',
-        domain=[('line_category', '=', 'labour')],
-    )
     
-    # NEW: Invoice tracking fields
+    # Invoice tracking fields
     invoice_created = fields.Boolean(string='Invoice Created', default=False)
     customer_invoice_id = fields.Many2one('account.move', string='Customer Invoice')
     insurance_invoice_id = fields.Many2one('account.move', string='Insurance Invoice')
-    auto_create_invoices = fields.Boolean(string='Auto Create Invoices', default=True, 
+    auto_create_invoices = fields.Boolean(string='Auto Create Invoices', default=True,
                                           help='Automatically create invoices when job card is created')
+    # Split sale orders linked from the estimate
+    customer_sale_order_id = fields.Many2one('sale.order', string='Customer Sale Order')
+    insurance_sale_order_id = fields.Many2one('sale.order', string='Insurance Sale Order')
     
     # Add this field
     access_token = fields.Char('Access Token', copy=False)
@@ -112,6 +149,41 @@ class JobCard(models.Model):
         """Generate a unique access token for portal access"""
         if not self.access_token:
             self.access_token = str(uuid.uuid4())
+
+    @api.model
+    def default_get(self, fields_list):
+        res = super().default_get(fields_list)
+        
+        if self.env.context.get('skip_default_lines'):
+            return res
+            
+        cons_prod = self.env['product.product'].search([('name', '=', 'Consumables')], limit=1)
+        if not cons_prod:
+            cons_prod = self.env['product.product'].create({'name': 'Consumables', 'type': 'service'})
+            
+        sundries_prod = self.env['product.product'].search([('name', '=', 'Sundries')], limit=1)
+        if not sundries_prod:
+            sundries_prod = self.env['product.product'].create({'name': 'Sundries', 'type': 'service'})
+
+        cons_lines = res.get('consumables_line_ids', [])
+        cons_lines.append((0, 0, {
+            'line_category': 'consumables',
+            'product_id': cons_prod.id,
+            'name': cons_prod.name,
+            'quantity': 1.0,
+        }))
+        res['consumables_line_ids'] = cons_lines
+
+        sundries_lines = res.get('sundries_line_ids', [])
+        sundries_lines.append((0, 0, {
+            'line_category': 'sundries',
+            'product_id': sundries_prod.id,
+            'name': sundries_prod.name,
+            'quantity': 1.0,
+        }))
+        res['sundries_line_ids'] = sundries_lines
+        
+        return res
 
     def get_portal_url(self, suffix=None, report_type=None):
         """Get the portal URL for this job card"""
@@ -179,19 +251,107 @@ class JobCard(models.Model):
         # Create the job card
         job_card = super().create(vals)
         
-        # NEW: Fetch and assign analytic account after creation
-        analytic_account = job_card._fetch_analytic_account()
-        if analytic_account:
-            job_card.analytic_account_id = analytic_account.id
-        
-        # NEW: Auto-create invoices if enabled
-        if job_card.auto_create_invoices and job_card.second_customer_id and job_card.excess_percentage:
-            try:
-                job_card._create_invoices()
-            except UserError as e:
-                _logger.warning(f"Could not auto-create invoices for job card {job_card.name}: {str(e)}")
-        
+        for rec in job_card:
+            # NEW: Fetch and assign analytic account after creation
+            analytic_account = rec._fetch_analytic_account()
+            if analytic_account:
+                rec.analytic_account_id = analytic_account.id
+            
+            # Check if created from estimate
+            is_from_estimate = False
+            if isinstance(vals, dict) and vals.get('estimate_id'):
+                is_from_estimate = True
+            elif rec.estimate_id:
+                is_from_estimate = True
+                
+            if not is_from_estimate:
+                # Auto-populate Consumables product line
+                consumables_product = self.env['product.product'].search(
+                    [('name', 'ilike', 'Consumables')], limit=1
+                )
+                if not consumables_product:
+                    consumables_product = self.env['product.product'].create({
+                        'name': 'Consumables',
+                        'type': 'service'
+                    })
+                    
+                if consumables_product:
+                    self.env['job.card.line'].create({
+                        'job_card_id': rec.id,
+                        'consumables_job_card_id': rec.id,
+                        'line_category': 'consumables',
+                        'product_id': consumables_product.id,
+                        'name': consumables_product.name,
+                        'quantity': 1.0,
+                        'unit_price': 0.0,
+                    })
+                    
+                # Auto-populate Sundries product line
+                sundries_product = self.env['product.product'].search(
+                    [('name', 'ilike', 'Sundries')], limit=1
+                )
+                if not sundries_product:
+                    sundries_product = self.env['product.product'].create({
+                        'name': 'Sundries',
+                        'type': 'service',
+                        'default_code': 'SUND',
+                    })
+                    
+                if sundries_product:
+                    self.env['job.card.line'].create({
+                        'job_card_id': rec.id,
+                        'sundries_job_card_id': rec.id,
+                        'line_category': 'sundries',
+                        'product_id': sundries_product.id,
+                        'name': sundries_product.name,
+                        'quantity': 1.0,
+                        'unit_price': 0.0,
+                    })
+
+        job_card._organize_lines()
         return job_card
+
+
+    def write(self, vals):
+        res = super().write(vals)
+        self._organize_lines()
+        return res
+
+    def _organize_lines(self):
+        categories = ['parts', 'consumables', 'repairs', 'paint', 'sundries', 'fittings']
+        from .estimate import LINE_CATEGORY_SELECTION
+        category_names = dict(LINE_CATEGORY_SELECTION)
+        base_seq = {'parts': 1000, 'consumables': 1500, 'repairs': 2000, 'paint': 3000, 'sundries': 3500, 'fittings': 4000}
+
+        for record in self:
+            lines = record.job_card_lines
+            for cat in categories:
+                cat_lines = lines.filtered(lambda l: l.line_category == cat and not l.display_type)
+                cat_notes = lines.filtered(lambda l: l.line_category == cat and l.display_type == 'line_note')
+                
+                if cat_lines or cat_notes:
+                    section = lines.filtered(lambda l: l.line_category == cat and l.display_type == 'line_section')
+                    if not section:
+                        section = self.env['job.card.line'].create({
+                            'job_card_id': record.id,
+                            'line_category': cat,
+                            'display_type': 'line_section',
+                            'name': category_names[cat],
+                            'sequence': base_seq[cat]
+                        })
+                    else:
+                        section[0].sequence = base_seq[cat]
+                    
+                    seq = base_seq[cat] + 1
+                    for line in (cat_lines + cat_notes).sorted(key=lambda x: getattr(x, 'id', 0) if isinstance(getattr(x, 'id', 0), int) else 0):
+                        line.sequence = seq
+                        seq += 1
+                else:
+                    section = lines.filtered(lambda l: l.line_category == cat and l.display_type == 'line_section')
+                    if section:
+                        section.unlink()
+
+
 
 
 
@@ -263,6 +423,7 @@ class JobCard(models.Model):
         if insurance_lines and self.second_customer_id and self.second_customer_id.partner_id:
             insurance_invoice = self.env['account.move'].create({
                 'move_type': 'out_invoice',
+                'is_insurance_invoice': True,
                 'partner_id': self.second_customer_id.partner_id.id,
                 'invoice_origin': self.name,
                 'invoice_line_ids': insurance_lines,
@@ -313,15 +474,122 @@ class JobCard(models.Model):
         
         return lines
 
+    is_cash = fields.Boolean(string='Cash Payment', default=False)
+    cash_receipt_ref = fields.Char(string='Receipt/Reference No.')
+
+    inventory_issue_ids = fields.One2many('job.inventory.issue', 'job_card_id', string='Inventory Issues')
+    inventory_issue_count = fields.Integer(string='Inventory Issues Count', compute='_compute_inventory_issue_count')
+    all_inventory_issued = fields.Boolean(string='All Inventory Issued', compute='_compute_all_inventory_issued', store=True)
+
+    @api.depends('inventory_issue_ids')
+    def _compute_inventory_issue_count(self):
+        for rec in self:
+            rec.inventory_issue_count = len(rec.inventory_issue_ids)
+
+    @api.depends('inventory_issue_ids.all_issued')
+    def _compute_all_inventory_issued(self):
+        allow_service = self.env['ir.config_parameter'].sudo().get_param('job_card_management.allow_service_requisition', 'False') == 'True'
+        for rec in self:
+            job_lines = rec.job_card_lines.filtered(
+                lambda l: not l.display_type and l.product_id
+            )
+            
+            if not allow_service:
+                job_lines = job_lines.filtered(lambda l: l.product_id.type == 'product')
+                
+            if not job_lines:
+                rec.all_inventory_issued = True
+                continue
+
+            all_issued = True
+            for line in job_lines:
+                issued_qty = sum(
+                    rec.inventory_issue_ids.mapped('issue_line_ids')
+                    .filtered(lambda il: il.job_card_line_id == line)
+                    .mapped('issued_qty')
+                )
+                if issued_qty < line.quantity:
+                    all_issued = False
+                    break
+                    
+            rec.all_inventory_issued = all_issued
+
+    def action_issue_inventory(self):
+        self.ensure_one()
+        source_loc_id = int(self.env['ir.config_parameter'].sudo().get_param('job_card_management.default_source_location', 0))
+        allow_service = self.env['ir.config_parameter'].sudo().get_param('job_card_management.allow_service_requisition', 'False') == 'True'
+        
+        lines_to_create = []
+        job_lines = self.job_card_lines.filtered(
+            lambda l: not l.display_type and l.product_id
+        )
+        for line in job_lines:
+            product = line.product_id
+            is_service = product.type != 'product'
+            
+            if not allow_service and is_service:
+                continue
+                
+            available_qty = 0.0
+            if not is_service and source_loc_id:
+                quants = self.env['stock.quant'].search([
+                    ('product_id', '=', product.id),
+                    ('location_id', 'child_of', source_loc_id),
+                ])
+                available_qty = sum(quants.mapped('available_quantity'))
+            lines_to_create.append((0, 0, {
+                'product_id': product.id,
+                'job_card_line_id': line.id,
+                'required_qty': line.quantity,
+                'issued_qty': 0.0,
+                'available_qty': available_qty,
+                'uom_id': line.product_uom_id.id if line.product_uom_id else product.uom_id.id,
+                'is_service': is_service,
+            }))
+            
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Issue Inventory',
+            'res_model': 'job.inventory.issue',
+            'view_mode': 'form',
+            'context': {
+                'default_job_card_id': self.id,
+                'default_issue_line_ids': lines_to_create,
+            },
+            'target': 'current',
+        }
+
     state = fields.Selection([
         ('draft', 'Draft'),
         ('approved', 'Approved'),
+        ('pending_inventory', 'Pending Inventory Issue'),
+        ('inventory_issued', 'Inventory Issued'),
+        ('pending_items', 'Pending Items'),
         ('in_progress', 'In Progress'),
         ('requisition_started', 'Requisition Started'),
         ('completed', 'Completed'),
         ('delivered', 'Delivered')
     ], default='draft')
     total_amount = fields.Float(string='Total Amount', compute='_compute_total', store=True)
+
+    payment_state = fields.Selection([
+        ('not_paid', 'Not Paid'),
+        ('in_payment', 'In Payment'),
+        ('paid', 'Paid'),
+        ('partial', 'Partially Paid'),
+        ('reversed', 'Reversed'),
+        ('invoicing_legacy', 'Invoicing App Legacy'),
+    ], string='Payment Status', tracking=True, default='not_paid')
+    
+    authorization_type = fields.Selection([
+        ('file', 'File'),
+        ('link', 'Link')
+    ], string='Authorization Type', default='file')
+    authorization_letter = fields.Binary(string='Authorization Letter')
+    authorization_letter_filename = fields.Char(string='Authorization Letter Filename')
+    authorization_link = fields.Char(string='Authorization Link')
+
+
     amount_untaxed = fields.Float(string='Total Excl', compute='_compute_total', store=True)
     amount_tax = fields.Float(string='Total Tax', compute='_compute_total', store=True)
     amount_total = fields.Float(string='Total Incl', compute='_compute_total', store=True)
@@ -342,10 +610,25 @@ class JobCard(models.Model):
                     sale_order.action_cancel()
             rec.state = 'draft'
 
-    @api.depends('excess_percentage')
+    @api.depends('excess_amount', 'betterment_amount', 'amount_total', 'second_customer_id')
     def _compute_insurance_pct(self):
         for rec in self:
-            rec.insurance_percentage = 100 - rec.excess_percentage if rec.excess_percentage else 0.0
+            amount = rec.amount_total or 0.0
+            if not rec.second_customer_id:
+                rec.insurance_amount = 0.0
+                rec.insurance_percentage = 0.0
+            else:
+                rec.insurance_amount = amount - (rec.excess_amount + rec.betterment_amount)
+                if amount > 0:
+                    rec.insurance_percentage = (rec.insurance_amount / amount) * 100.0
+                else:
+                    rec.insurance_percentage = 0.0
+
+    @api.onchange('second_customer_id', 'amount_total')
+    def _onchange_insurance_company_defaults(self):
+        if not self.second_customer_id:
+            self.excess_amount = self.amount_total or 0.0
+            self.betterment_amount = 0.0
 
     @api.depends('vehicle_id', 'vehicle_id.registration_number', 'vehicle_id.make_id.name', 'vehicle_id.model_id.name')
     def _compute_vehicle_display(self):
@@ -359,29 +642,266 @@ class JobCard(models.Model):
             else:
                 rec.vehicle_display = ""
 
-    @api.depends('job_card_lines.price_total', 'job_card_lines.price_subtotal', 'job_card_lines.tax_amount')
-    def _compute_total(self):
+    @api.onchange('betterment_percentage', 'amount_total')
+    def _onchange_betterment_percentage(self):
+        if self.betterment_billing_policy_setting == 'percentage':
+            if self.amount_total:
+                self.betterment_amount = (self.betterment_percentage / 100) * self.amount_total
+            else:
+                self.betterment_amount = 0.0
+
+    @api.constrains('authorization_letter_filename')
+    def _check_authorization_file_extension(self):
         for rec in self:
-            rec.amount_untaxed = sum(rec.job_card_lines.filtered(lambda l: not l.display_type).mapped('price_subtotal'))
-            rec.amount_tax = sum(rec.job_card_lines.filtered(lambda l: not l.display_type).mapped('tax_amount'))
+            if rec.authorization_letter_filename:
+                allowed_extensions = ('.pdf', '.txt', '.doc', '.docx')
+                if not rec.authorization_letter_filename.lower().endswith(allowed_extensions):
+                    raise ValidationError("The authorization letter must be a PDF, TXT, DOC, or DOCX file.")
+
+    @api.constrains('excess_amount', 'betterment_amount', 'amount_total')
+    def _check_insurance_amounts(self):
+        for rec in self:
+            if rec.excess_amount < 0 or rec.betterment_amount < 0:
+                raise ValidationError("Excess and Betterment amounts must be positive.")
+            if round(rec.excess_amount + rec.betterment_amount, 2) > round(rec.amount_total, 2):
+                raise ValidationError("The sum of Excess and Betterment amounts cannot exceed the Total Invoice amount.")
+
+    @api.depends(
+        'job_card_lines.price_total', 'job_card_lines.price_subtotal', 'job_card_lines.tax_amount',
+        'parts_line_ids.price_subtotal', 'parts_line_ids.price_total', 'parts_line_ids.tax_amount',
+        'consumables_line_ids.price_subtotal', 'consumables_line_ids.price_total', 'consumables_line_ids.tax_amount',
+        'repairs_line_ids.price_subtotal', 'repairs_line_ids.price_total', 'repairs_line_ids.tax_amount',
+        'paint_line_ids.price_subtotal', 'paint_line_ids.price_total', 'paint_line_ids.tax_amount',
+        'sundries_line_ids.price_subtotal', 'sundries_line_ids.price_total', 'sundries_line_ids.tax_amount',
+        'fittings_line_ids.price_subtotal', 'fittings_line_ids.price_total', 'fittings_line_ids.tax_amount'
+    )
+    def _compute_total(self):
+        import logging
+        _logger = logging.getLogger(__name__)
+        for rec in self:
+            all_lines = rec.job_card_lines | rec.parts_line_ids | rec.consumables_line_ids | rec.repairs_line_ids | rec.paint_line_ids | rec.sundries_line_ids | rec.fittings_line_ids
+            lines = all_lines.filtered(lambda l: not l.display_type)
+            _logger.info("COMPUTE TOTAL CALLED! parts: %s, all: %s", len(rec.parts_line_ids), len(all_lines))
+            for l in lines:
+                _logger.info("LINE ID: %s, subtotal: %s", l.id, l.price_subtotal)
+            rec.amount_untaxed = sum(lines.mapped('price_subtotal'))
+            rec.amount_tax = sum(lines.mapped('tax_amount'))
             rec.amount_total = rec.amount_untaxed + rec.amount_tax
             rec.total_amount = rec.amount_total
+
+    def _organize_sections(self):
+        categories = ['parts', 'consumables', 'repairs', 'paint', 'sundries', 'fittings']
+        from .estimate import LINE_CATEGORY_SELECTION
+        category_names = dict(LINE_CATEGORY_SELECTION)
+        base_seq = {'parts': 1000, 'consumables': 1500, 'repairs': 2000, 'paint': 3000, 'sundries': 3500, 'fittings': 4000}
+        
+        for rec in self:
+            for cat in categories:
+                # Get lines from the specific category tab
+                cat_lines = getattr(rec, f'{cat}_line_ids').filtered(lambda l: l.display_type != 'line_section')
+                if cat_lines:
+                    # Link them to the main order lines
+                    for line in cat_lines:
+                        line.job_card_id = rec.id
+
+                    section = rec.job_card_lines.filtered(lambda l: l.line_category == cat and l.display_type == 'line_section')
+                    if not section:
+                        self.env['job.card.line'].create({
+                            'job_card_id': rec.id,
+                            'line_category': cat,
+                            'display_type': 'line_section',
+                            'name': category_names[cat],
+                            'sequence': base_seq[cat]
+                        })
+                    else:
+                        section.sequence = base_seq[cat]
+                    
+                    seq = base_seq[cat] + 1
+                    for line in cat_lines:
+                        line.sequence = seq
+                        seq += 1
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        records._organize_sections()
+        return records
+
+    def write(self, vals):
+        res = super().write(vals)
+        self._organize_sections()
+        return res
+
+    def _build_so_lines_from_job(self, price_multiplier=1.0):
+        """Build sale order lines from job card lines, applying a price multiplier for splits."""
+        lines = []
+        for line in self.job_card_lines:
+            line_vals = {}
+            if line.display_type:
+                line_vals['display_type'] = line.display_type
+                line_vals['name'] = line.name
+            else:
+                line_vals['name'] = line.name or (line.product_id.name if line.product_id else '')
+                line_vals['product_uom_qty'] = line.quantity
+                line_vals['price_unit'] = line.unit_price * price_multiplier
+                if line.product_id:
+                    line_vals['product_id'] = line.product_id.id
+                if line.product_uom_id:
+                    line_vals['product_uom_id'] = line.product_uom_id.id
+                if line.tax_ids:
+                    line_vals['tax_ids'] = [(6, 0, line.tax_ids.ids)]
+                if line.discount:
+                    line_vals['discount'] = line.discount
+                if self.analytic_account_id:
+                    line_vals['analytic_distribution'] = {str(self.analytic_account_id.id): 100.0}
+            lines.append(line_vals)
+        return lines
 
     def action_approve_job_card(self):
 
         for rec in self:
-            rec.state = 'approved'
+            rec.state = 'pending_inventory'
             if not rec.access_token:
                 rec._generate_access_token()
+                
+            # Create Sales Orders if not already created
+            if not rec.customer_sale_order_id:
+                has_insurance = bool(
+                    rec.second_customer_id and
+                    rec.second_customer_id.partner_id
+                )
+                
+                # Fetch settings
+                billing_policy = self.env['ir.config_parameter'].sudo().get_param('job_card_management.job_card_billing_policy', 'percentage')
+                enable_betterment = self.env['ir.config_parameter'].sudo().get_param('job_card_management.enable_betterment', 'False') == 'True'
+                betterment_policy = self.env['ir.config_parameter'].sudo().get_param('job_card_management.betterment_billing_policy', 'percentage')
+
+                # Helper to get/create product
+                def get_service_product(name):
+                    product = self.env['product.product'].search([('name', '=', name)], limit=1)
+                    if not product:
+                        product = self.env['product.product'].create({'name': name, 'type': 'service'})
+                    return product
+
+                excess_product = get_service_product('Excess')
+                betterment_product = get_service_product('Betterment')
+
+                # Total Job Card Amount for percentage calculations
+                total_amount = rec.amount_total
+
+                if has_insurance:
+                    if billing_policy == 'percentage':
+                        excess_value = total_amount * (rec.excess_percentage / 100.0)
+                        insurance_value = total_amount * (rec.insurance_percentage / 100.0)
+                        excess_factor = rec.excess_percentage / 100.0
+                        insurance_factor = rec.insurance_percentage / 100.0
+                    else:
+                        excess_value = rec.excess_amount
+                        insurance_value = rec.insurance_amount
+                        excess_factor = (excess_value / total_amount) if total_amount else 0.0
+                        insurance_factor = (insurance_value / total_amount) if total_amount else 0.0
+
+                    if enable_betterment:
+                        if betterment_policy == 'percentage':
+                            betterment_value = total_amount * (rec.betterment_percentage / 100.0)
+                        else:
+                            betterment_value = rec.betterment_amount
+                    else:
+                        betterment_value = 0.0
+
+                    # Customer SO
+                    customer_so = self.env['sale.order'].create({
+                        'partner_id': rec.customer_id.partner_id.id,
+                        'origin': f"{rec.name} (Customer)",
+                        'note': f"Customer portion of Job Card {rec.name}",
+                    })
+                    rec.customer_sale_order_id = customer_so.id
+                    
+                    # Create Excess Line
+                    self.env['sale.order.line'].create({
+                        'order_id': customer_so.id,
+                        'product_id': excess_product.id,
+                        'name': excess_product.name,
+                        'product_uom_qty': 1.0,
+                        'price_unit': excess_value,
+                    })
+                    
+                    # Create Betterment Line if > 0
+                    if enable_betterment and betterment_value > 0:
+                        self.env['sale.order.line'].create({
+                            'order_id': customer_so.id,
+                            'product_id': betterment_product.id,
+                            'name': betterment_product.name,
+                            'product_uom_qty': 1.0,
+                            'price_unit': betterment_value,
+                        })
+                        
+                    customer_so.action_confirm()
+
+                    # Insurance SO
+                    insurance_so = self.env['sale.order'].create({
+                        'partner_id': rec.second_customer_id.partner_id.id,
+                        'origin': f"{rec.name} (Insurance)",
+                        'note': f"Insurance portion of Job Card {rec.name}",
+                    })
+                    rec.insurance_sale_order_id = insurance_so.id
+                    for line_vals in rec._build_so_lines_from_job(price_multiplier=insurance_factor):
+                        self.env['sale.order.line'].create(dict(line_vals, order_id=insurance_so.id))
+                    insurance_so.action_confirm()
+                else:
+                    # No Insurance: single SO, customer pays all
+                    total_amount = rec.amount_total
+                    if enable_betterment:
+                        if betterment_policy == 'percentage':
+                            betterment_value = total_amount * (rec.betterment_percentage / 100.0)
+                        else:
+                            betterment_value = rec.betterment_amount
+                    else:
+                        betterment_value = 0.0
+
+                    sale_order = self.env['sale.order'].create({
+                        'partner_id': rec.customer_id.partner_id.id,
+                        'origin': rec.name,
+                    })
+                    rec.customer_sale_order_id = sale_order.id
+                    
+                    # Create Excess Line (which is 100% of the cost here)
+                    self.env['sale.order.line'].create({
+                        'order_id': sale_order.id,
+                        'product_id': excess_product.id,
+                        'name': "Job Card Total",
+                        'product_uom_qty': 1.0,
+                        'price_unit': total_amount,
+                    })
+                    
+                    # Create Betterment Line if > 0
+                    if enable_betterment and betterment_value > 0:
+                        self.env['sale.order.line'].create({
+                            'order_id': sale_order.id,
+                            'product_id': betterment_product.id,
+                            'name': betterment_product.name,
+                            'product_uom_qty': 1.0,
+                            'price_unit': betterment_value,
+                        })
+                    sale_order.action_confirm()
+            
+            # Auto-create invoices if enabled
+            if rec.auto_create_invoices:
+                try:
+                    rec._generate_linked_invoices()
+                except UserError as e:
+                    _logger.warning(f"Could not auto-create invoices for job card {rec.name}: {str(e)}")
 
     def action_start_job(self):
         self._check_schedule_dates()
+        if not self.all_inventory_issued:
+            raise UserError(_('You cannot start the job until all inventory items have been issued or requisitioned.'))
         self.state = 'in_progress'
         return True
 
     def action_create_requisition(self):
-        if self.state not in ['in_progress']:
-            raise UserError(_('You must start the job before you can create a requisition.'))
+        if self.state in ['completed', 'delivered']:
+            raise UserError(_('You cannot create a requisition for a completed job.'))
         self._check_schedule_dates()
         
         if not self.analytic_account_id:
@@ -421,31 +941,63 @@ class JobCard(models.Model):
             'view_mode': 'form',
         }
 
+    def _generate_linked_invoices(self):
+        """Generate invoices from linked SOs or standalone."""
+        if self.invoice_created:
+            return
+
+        if self.customer_sale_order_id:
+            # Invoice customer SO
+            if self.customer_sale_order_id.invoice_status in ('to invoice', 'no'):
+                customer_invoices = self.customer_sale_order_id._create_invoices()
+                customer_invoices.action_post()
+                if customer_invoices:
+                    self.customer_invoice_id = customer_invoices[0].id
+
+            # Invoice insurance SO (if exists)
+            if self.insurance_sale_order_id and self.insurance_sale_order_id.invoice_status in ('to invoice', 'no'):
+                insurance_invoices = self.insurance_sale_order_id._create_invoices()
+                insurance_invoices.write({'is_insurance_invoice': True})
+                insurance_invoices.action_post()
+                if insurance_invoices:
+                    self.insurance_invoice_id = insurance_invoices[0].id
+
+            self.invoice_created = True
+
     def action_finalize_job_card(self):
         if not self.second_customer_id:
             raise UserError(_('Please add Insurance Company as Second Customer before finalizing.'))
-        if not self.excess_percentage:
+        if not self.excess_percentage and self.billing_policy_setting == 'percentage':
             raise UserError(_('Please set the Excess percentage.'))
-        
-        # Create split invoices (customer and insurance)
-        if not self.invoice_created:
-            self._create_invoices()
-        
+        if not self.all_inventory_issued:
+            raise UserError(_('You cannot finalize the job until all inventory items have been issued.'))
+
+        # Ensure invoices are created (if not already created at open)
+        self._generate_linked_invoices()
+
         self.state = 'delivered'
         return self.action_view_invoices()
     
-    # NEW: Action to view created invoices
     def action_view_invoices(self):
-        """Action to view created invoices"""
-        invoices = self.customer_invoice_id + self.insurance_invoice_id
-        if not invoices:
+        """Action to view created invoices (from linked SOs or standalone)"""
+        # Collect invoices from linked SOs
+        invoice_ids = set()
+        if self.customer_invoice_id:
+            invoice_ids.add(self.customer_invoice_id.id)
+        if self.insurance_invoice_id:
+            invoice_ids.add(self.insurance_invoice_id.id)
+        # Also pull invoices from linked sale orders
+        for so in (self.customer_sale_order_id | self.insurance_sale_order_id):
+            invoice_ids.update(so.invoice_ids.ids)
+
+        if not invoice_ids:
             raise UserError(_('No invoices have been created for this job card yet.'))
-        
+
         return {
             'type': 'ir.actions.act_window',
             'name': _('Invoices'),
             'res_model': 'account.move',
-            'domain': [('id', 'in', invoices.ids)],
+            'domain': [('id', 'in', list(invoice_ids))],
             'view_mode': 'list,form',
             'target': 'current',
         }
@@ -485,15 +1037,22 @@ class JobCardLine(models.Model):
     _description = 'Job Card Line'
     _order = 'sequence, id'
 
-    job_card_id = fields.Many2one('job.card', string='Job Card', ondelete='cascade', required=True)
+    job_card_id = fields.Many2one('job.card', string='Job Card', ondelete='cascade', index=True)
+    parts_job_card_id = fields.Many2one('job.card', string='Job Card (Parts)', ondelete='cascade')
+    consumables_job_card_id = fields.Many2one('job.card', string='Job Card (Consumables)', ondelete='cascade')
+    repairs_job_card_id = fields.Many2one('job.card', string='Job Card (Repairs)', ondelete='cascade')
+    paint_job_card_id = fields.Many2one('job.card', string='Job Card (Paint)', ondelete='cascade')
+    sundries_job_card_id = fields.Many2one('job.card', string='Job Card (Sundries)', ondelete='cascade')
+    fittings_job_card_id = fields.Many2one('job.card', string='Job Card (Fittings)', ondelete='cascade')
     sequence = fields.Integer(string='Sequence', default=10)
     line_category = fields.Selection(
         [
-            ('parts', 'Parts'),
-            ('repairs', 'Repairs'),
-            ('paint', 'Paint'),
+            ('parts', 'Supply Parts'),
+            ('consumables', 'Consumables'),
+            ('repairs', 'Repair Works'),
+            ('paint', 'Paint Job'),
+            ('sundries', 'Sundries'),
             ('fittings', 'Fittings'),
-            ('labour', 'Labour'),
         ],
         string='Category',
         default='parts',
@@ -558,9 +1117,9 @@ class JobCardLine(models.Model):
                     line.price_total = subtotal
                     line.tax_amount = 0
 
-    price_subtotal = fields.Float(string='Subtotal', compute='_compute_amount', store=False)
-    tax_amount = fields.Float(string='Tax', compute='_compute_amount', store=False)
-    price_total = fields.Float(string='Amount', compute='_compute_amount', store=False)
+    price_subtotal = fields.Float(string='Subtotal', compute='_compute_amount', store=True)
+    tax_amount = fields.Float(string='Tax', compute='_compute_amount', store=True)
+    price_total = fields.Float(string='Amount', compute='_compute_amount', store=True)
 
 
 

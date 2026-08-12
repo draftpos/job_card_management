@@ -43,10 +43,10 @@
                             </control>
                             <field name="display_type" column_invisible="True"/>
                             <field name="sequence" widget="handle"/>
-                            <field name="product_id" optional="show" string="Product" required="not display_type" invisible="display_type != False"/>
-                            <field name="name" string="Section/Note" invisible="display_type == False"/>
+                            <field name="product_id" optional="show" string="Product" required="not display_type" invisible="display_type in ('line_section', 'line_note')"/>
+                            <field name="name" string="Section/Note" />
                             <field name="product_uom_id" optional="show" string="UoM" invisible="1" required="not display_type" groups="uom.group_uom" width="80px"/>
-                            <field name="quantity" optional="show" string="Quantity" invisible="display_type != False"/>
+                            <field name="quantity" optional="show" string="Quantity" invisible="display_type in ('line_section', 'line_note')"/>
                             <field name="buying_price" required="not display_type and type == 'purchase_order'" invisible="display_type != False or type == 'internal_transfer'"/>
                             <field name="selling_price" invisible="display_type != False or type == 'internal_transfer'"/>
                             <field name="profit" readonly="1" invisible="display_type != False or type == 'internal_transfer'"/>

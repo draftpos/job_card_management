@@ -9,3 +9,6 @@ from . import procurement
 from . import technician
 from . import job_card_profitability
 from . import job_card_dashboard
+from . import inventory_issue
+from . import account_move
+from . import purchase_order

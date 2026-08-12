@@ -15,6 +15,9 @@ access_job_card_profitability_user,Access Job Card Profitability,model_job_card_
 access_job_technician_user,Access Job Technician,model_job_technician,base.group_user,1,1,1,1
 access_job_card_reopen,Job Card Reopener,model_job_card,group_can_reopen_job_card,1,1,1,1
 access_estimate_redo,Estimate Redo,model_estimate,group_can_redo_estimate,1,1,1,1
-access_vehicle_make_user,vehicle.make.user.access,model_vehicle_make,base.group_user,1,0,0,0
-access_vehicle_model_user,vehicle.model.user.access,model_vehicle_model,base.group_user,1,0,0,0
+access_vehicle_make_user,vehicle.make.user.access,model_vehicle_make,base.group_user,1,1,1,0
+access_vehicle_model_user,vehicle.model.user.access,model_vehicle_model,base.group_user,1,1,1,0
 access_procurement_zero_price_wizard,procurement.zero.price.wizard,model_procurement_zero_price_wizard,base.group_user,1,1,1,1
+access_inventory_issue_user,job.inventory.issue.user.access,model_job_inventory_issue,base.group_user,1,1,1,1
+access_inventory_issue_line_user,job.inventory.issue.line.user.access,model_job_inventory_issue_line,base.group_user,1,1,1,1
+access_print_invoice_wizard,print.invoice.wizard,model_print_invoice_wizard,base.group_user,1,1,1,1

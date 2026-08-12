@@ -8,11 +8,12 @@ from odoo.addons.portal.controllers.portal import CustomerPortal  # type: ignore
 
 
 LINE_CATEGORY_SELECTION = [
-    ('parts', 'Parts'),
-    ('repairs', 'Repairs'),
-    ('paint', 'Paint'),
+    ('parts', 'Supply Parts'),
+    ('consumables', 'Consumables'),
+    ('repairs', 'Repair Works'),
+    ('paint', 'Paint Job'),
+    ('sundries', 'Sundries'),
     ('fittings', 'Fittings'),
-    ('labour', 'Labour'),
 ]
 
 
@@ -45,7 +46,7 @@ class Estimate(models.Model):
         return f'EST-{max_num + 1}'
 
     name = fields.Char(
-        string='Estimate Number',
+        string='Estimate NO:',
         required=True,
         default=_default_name,
         readonly=True,
@@ -58,6 +59,57 @@ class Estimate(models.Model):
         domain="[('customer_type', '=', 'insurance')]",
         help='Select or create an insurance company'
     )
+    excess_percentage = fields.Float(
+        string='Excess (%)',
+        default=0.0,
+        help='Percentage of the total paid by the customer (excess). Insurance pays the rest.'
+    )
+    insurance_percentage = fields.Float(
+        string='Insurance Pays (%)',
+        compute='_compute_insurance_pct',
+        store=True,
+        help='Automatically computed as 100 minus the excess percentage.'
+    )
+    excess_amount = fields.Float(string='Excess AMT', default=0.0)
+    insurance_amount = fields.Float(string='Insurance AMT', default=0.0)
+
+    authorization_type = fields.Selection([
+        ('file', 'File'),
+        ('link', 'Link')
+    ], string='Authorization Type', default='file')
+    authorization_letter = fields.Binary(string='Authorization Letter')
+    authorization_letter_filename = fields.Char(string='Authorization Letter Filename')
+    authorization_link = fields.Char(string='Authorization Link')
+
+    betterment_percentage = fields.Float(string='Betterment (%)', default=0.0)
+    betterment_amount = fields.Float(string='Betterment AMT', default=0.0)
+
+    billing_policy_setting = fields.Char(
+        string='Billing Policy',
+        compute='_compute_billing_policy_setting',
+    )
+    betterment_billing_policy_setting = fields.Char(
+        string='Betterment Billing Policy',
+        compute='_compute_billing_policy_setting',
+    )
+    enable_betterment_setting = fields.Boolean(
+        string='Betterment Enabled',
+        compute='_compute_billing_policy_setting',
+    )
+
+    @api.depends_context('uid')
+    def _compute_billing_policy_setting(self):
+        ICP = self.env['ir.config_parameter'].sudo()
+        billing_policy = ICP.get_param('job_card_management.job_card_billing_policy', 'percentage')
+        betterment_policy = ICP.get_param('job_card_management.betterment_billing_policy', 'percentage')
+        enable_betterment = ICP.get_param('job_card_management.enable_betterment', 'False') == 'True'
+        for rec in self:
+            rec.billing_policy_setting = billing_policy
+            rec.betterment_billing_policy_setting = betterment_policy
+            rec.enable_betterment_setting = enable_betterment
+
+
+    insurance_sale_order_id = fields.Many2one('sale.order', string='Insurance Sale Order')
     vehicle_id = fields.Many2one(
         'vehicle',
         string='Vehicle',
@@ -66,7 +118,7 @@ class Estimate(models.Model):
     )
     vehicle_reg_number = fields.Char(
         related='vehicle_id.registration_number',
-        string='Vehicle REG Number',
+        string='REG NO:',
         readonly=True,
     )
     vehicle_name = fields.Char(
@@ -99,24 +151,28 @@ class Estimate(models.Model):
     )
     estimate_lines = fields.One2many('estimate.line', 'estimate_id', string='Lines', copy=True)
     parts_line_ids = fields.One2many(
-        'estimate.line', 'estimate_id', string='Parts Lines',
+        'estimate.line', 'parts_estimate_id', string='Supply Parts',
         domain=[('line_category', '=', 'parts')],
     )
+    consumables_line_ids = fields.One2many(
+        'estimate.line', 'consumables_estimate_id', string='Consumables',
+        domain=[('line_category', '=', 'consumables')],
+    )
     repairs_line_ids = fields.One2many(
-        'estimate.line', 'estimate_id', string='Repairs Lines',
+        'estimate.line', 'repairs_estimate_id', string='Repair Works',
         domain=[('line_category', '=', 'repairs')],
     )
     paint_line_ids = fields.One2many(
-        'estimate.line', 'estimate_id', string='Paint Lines',
+        'estimate.line', 'paint_estimate_id', string='Paint Job',
         domain=[('line_category', '=', 'paint')],
     )
-    fittings_line_ids = fields.One2many(
-        'estimate.line', 'estimate_id', string='Fittings Lines',
-        domain=[('line_category', '=', 'fittings')],
+    sundries_line_ids = fields.One2many(
+        'estimate.line', 'sundries_estimate_id', string='Sundries',
+        domain=[('line_category', '=', 'sundries')],
     )
-    labour_line_ids = fields.One2many(
-        'estimate.line', 'estimate_id', string='Labour Lines',
-        domain=[('line_category', '=', 'labour')],
+    fittings_line_ids = fields.One2many(
+        'estimate.line', 'fittings_estimate_id', string='Fittings',
+        domain=[('line_category', '=', 'fittings')],
     )
     access_token = fields.Char('Access Token', copy=False)
 
@@ -131,6 +187,34 @@ class Estimate(models.Model):
                 and self.env.context.get('active_id')
             ):
                 res['customer_id'] = self.env.context['active_id']
+        
+        # Auto-populate Consumables and Sundries
+        cons_prod = self.env['product.product'].search([('name', '=', 'Consumables')], limit=1)
+        if not cons_prod:
+            cons_prod = self.env['product.product'].create({'name': 'Consumables', 'type': 'service'})
+        
+        sundries_prod = self.env['product.product'].search([('name', '=', 'Sundries')], limit=1)
+        if not sundries_prod:
+            sundries_prod = self.env['product.product'].create({'name': 'Sundries', 'type': 'service'})
+
+        cons_lines = res.get('consumables_line_ids', [])
+        cons_lines.append((0, 0, {
+            'line_category': 'consumables',
+            'product_id': cons_prod.id,
+            'name': cons_prod.name,
+            'quantity': 1.0,
+        }))
+        res['consumables_line_ids'] = cons_lines
+
+        sundries_lines = res.get('sundries_line_ids', [])
+        sundries_lines.append((0, 0, {
+            'line_category': 'sundries',
+            'product_id': sundries_prod.id,
+            'name': sundries_prod.name,
+            'quantity': 1.0,
+        }))
+        res['sundries_line_ids'] = sundries_lines
+        
         return res
 
     @api.model
@@ -142,7 +226,56 @@ class Estimate(models.Model):
         else:
             if not vals.get('name') or vals.get('name') == 'New':
                 vals['name'] = self._default_name()
-        return super().create(vals)
+        records = super().create(vals)
+
+        for record in records:
+            # Auto-populate Consumables product line
+            consumables_product = self.env['product.product'].search(
+                [('name', 'ilike', 'Consumables')], limit=1
+            )
+            if not consumables_product:
+                consumables_product = self.env['product.product'].create({
+                    'name': 'Consumables',
+                    'type': 'service',
+                    'default_code': 'CONS',
+                })
+            
+            if consumables_product:
+                self.env['estimate.line'].create({
+                    'estimate_id': record.id,
+                    'consumables_estimate_id': record.id,
+                    'line_category': 'consumables',
+                    'product_id': consumables_product.id,
+                    'name': consumables_product.name,
+                    'quantity': 1.0,
+                    'unit_price': 0.0,
+                })
+
+            # Auto-populate Sundries product line
+            sundries_product = self.env['product.product'].search(
+                [('name', 'ilike', 'Sundries')], limit=1
+            )
+            if not sundries_product:
+                sundries_product = self.env['product.product'].create({
+                    'name': 'Sundries',
+                    'type': 'service',
+                    'default_code': 'SUND',
+                })
+                
+            if sundries_product:
+                self.env['estimate.line'].create({
+                    'estimate_id': record.id,
+                    'sundries_estimate_id': record.id,
+                    'line_category': 'sundries',
+                    'product_id': sundries_product.id,
+                    'name': sundries_product.name,
+                    'quantity': 1.0,
+                    'unit_price': 0.0,
+                })
+
+        records._organize_lines()
+        return records
+
 
     def write(self, vals):
         locked_fields = {'customer_id', 'name', 'vehicle_id'}
@@ -153,15 +286,101 @@ class Estimate(models.Model):
                         'Cannot change customer, estimate number, or vehicle on an approved '
                         'estimate. Use Redo first.'
                     ))
-        return super().write(vals)
+        res = super().write(vals)
+        self._organize_lines()
+        return res
 
-    @api.depends('estimate_lines.price_subtotal', 'estimate_lines.price_total')
+    def _organize_lines(self):
+        categories = ['parts', 'consumables', 'repairs', 'paint', 'sundries', 'fittings']
+        category_names = dict(LINE_CATEGORY_SELECTION)
+        base_seq = {'parts': 1000, 'consumables': 1500, 'repairs': 2000, 'paint': 3000, 'sundries': 3500, 'fittings': 4000}
+
+        for record in self:
+            lines = record.estimate_lines
+            for cat in categories:
+                cat_lines = lines.filtered(lambda l: l.line_category == cat and not l.display_type)
+                cat_notes = lines.filtered(lambda l: l.line_category == cat and l.display_type == 'line_note')
+                
+                if cat_lines or cat_notes:
+                    section = lines.filtered(lambda l: l.line_category == cat and l.display_type == 'line_section')
+                    if not section:
+                        section = self.env['estimate.line'].create({
+                            'estimate_id': record.id,
+                            'line_category': cat,
+                            'display_type': 'line_section',
+                            'name': category_names[cat],
+                            'sequence': base_seq[cat]
+                        })
+                    else:
+                        section[0].sequence = base_seq[cat]
+                    
+                    seq = base_seq[cat] + 1
+                    for line in (cat_lines + cat_notes).sorted(key=lambda x: getattr(x, 'id', 0) if isinstance(getattr(x, 'id', 0), int) else 0):
+                        line.sequence = seq
+                        seq += 1
+                else:
+                    section = lines.filtered(lambda l: l.line_category == cat and l.display_type == 'line_section')
+                    if section:
+                        section.unlink()
+
+    @api.depends(
+        'estimate_lines.price_subtotal', 'estimate_lines.price_total',
+        'parts_line_ids.price_subtotal', 'parts_line_ids.price_total',
+        'consumables_line_ids.price_subtotal', 'consumables_line_ids.price_total',
+        'repairs_line_ids.price_subtotal', 'repairs_line_ids.price_total',
+        'paint_line_ids.price_subtotal', 'paint_line_ids.price_total',
+        'sundries_line_ids.price_subtotal', 'sundries_line_ids.price_total',
+        'fittings_line_ids.price_subtotal', 'fittings_line_ids.price_total'
+    )
     def _compute_totals(self):
         for estimate in self:
-            lines = estimate.estimate_lines.filtered(lambda l: not l.display_type)
+            all_lines = estimate.estimate_lines | estimate.parts_line_ids | estimate.consumables_line_ids | estimate.repairs_line_ids | estimate.paint_line_ids | estimate.sundries_line_ids | estimate.fittings_line_ids
+            lines = all_lines.filtered(lambda l: not l.display_type)
             estimate.amount_untaxed = sum(lines.mapped('price_subtotal'))
             estimate.amount_tax = sum(lines.mapped(lambda l: l.price_total - l.price_subtotal))
             estimate.amount_total = estimate.amount_untaxed + estimate.amount_tax
+
+    def _organize_sections(self):
+        categories = ['parts', 'consumables', 'repairs', 'paint', 'sundries', 'fittings']
+        category_names = dict(LINE_CATEGORY_SELECTION)
+        base_seq = {'parts': 1000, 'consumables': 1500, 'repairs': 2000, 'paint': 3000, 'sundries': 3500, 'fittings': 4000}
+        
+        for rec in self:
+            for cat in categories:
+                # Get lines from the specific category tab
+                cat_lines = getattr(rec, f'{cat}_line_ids').filtered(lambda l: l.display_type != 'line_section')
+                if cat_lines:
+                    # Link them to the main order lines
+                    for line in cat_lines:
+                        line.estimate_id = rec.id
+
+                    section = rec.estimate_lines.filtered(lambda l: l.line_category == cat and l.display_type == 'line_section')
+                    if not section:
+                        self.env['estimate.line'].create({
+                            'estimate_id': rec.id,
+                            'line_category': cat,
+                            'display_type': 'line_section',
+                            'name': category_names[cat],
+                            'sequence': base_seq[cat]
+                        })
+                    else:
+                        section.sequence = base_seq[cat]
+                    
+                    seq = base_seq[cat] + 1
+                    for line in cat_lines:
+                        line.sequence = seq
+                        seq += 1
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        records._organize_sections()
+        return records
+
+    def write(self, vals):
+        res = super().write(vals)
+        self._organize_sections()
+        return res
 
     amount_untaxed = fields.Float(string='Total Excl', compute='_compute_totals')
     amount_tax = fields.Float(string='Total Tax', compute='_compute_totals')
@@ -202,40 +421,91 @@ class Estimate(models.Model):
     def action_submit(self):
         self.state = 'submitted'
 
+    @api.depends('excess_amount', 'betterment_amount', 'amount_total', 'insurance_company_id')
+    def _compute_insurance_pct(self):
+        for rec in self:
+            amount = rec.amount_total or 0.0
+            if not rec.insurance_company_id:
+                rec.insurance_amount = 0.0
+                rec.insurance_percentage = 0.0
+            else:
+                rec.insurance_amount = amount - (rec.excess_amount + rec.betterment_amount)
+                if amount > 0:
+                    rec.insurance_percentage = (rec.insurance_amount / amount) * 100.0
+                else:
+                    rec.insurance_percentage = 0.0
+
+    @api.onchange('insurance_company_id', 'amount_total')
+    def _onchange_insurance_company_defaults(self):
+        if not self.insurance_company_id:
+            self.excess_amount = self.amount_total or 0.0
+            self.betterment_amount = 0.0
+
+    @api.onchange('betterment_percentage', 'amount_total')
+    def _onchange_betterment_percentage(self):
+        if self.betterment_billing_policy_setting == 'percentage':
+            if self.amount_total:
+                self.betterment_amount = (self.betterment_percentage / 100) * self.amount_total
+            else:
+                self.betterment_amount = 0.0
+
+    @api.onchange('excess_amount', 'betterment_amount', 'amount_total')
+    def _onchange_insurance_totals(self):
+        amount = self.amount_total or 0.0
+        self.insurance_amount = amount - (self.excess_amount + self.betterment_amount)
+        if amount > 0:
+            self.insurance_percentage = (self.insurance_amount / amount) * 100
+        else:
+            self.insurance_percentage = 0.0
+
+    @api.constrains('authorization_letter_filename')
+    def _check_authorization_file_extension(self):
+        for rec in self:
+            if rec.authorization_letter_filename:
+                allowed_extensions = ('.pdf', '.txt', '.doc', '.docx')
+                if not rec.authorization_letter_filename.lower().endswith(allowed_extensions):
+                    raise ValidationError("The authorization letter must be a PDF, TXT, DOC, or DOCX file.")
+
+    @api.constrains('excess_amount', 'betterment_amount', 'amount_total')
+    def _check_insurance_amounts(self):
+        for rec in self:
+            if rec.excess_amount < 0 or rec.betterment_amount < 0:
+                raise ValidationError("Excess and Betterment amounts must be positive.")
+            if round(rec.excess_amount + rec.betterment_amount, 2) > round(rec.amount_total, 2):
+                raise ValidationError("The sum of Excess and Betterment amounts cannot exceed the Total Invoice amount.")
+
+    def _build_so_lines(self, price_multiplier=1.0):
+        """Build sale order lines from estimate lines, applying a price multiplier for splits."""
+        lines = []
+        for line in self.estimate_lines:
+            line_vals = {}
+            if line.display_type:
+                line_vals['display_type'] = line.display_type
+                line_vals['name'] = line.name
+            else:
+                line_vals['name'] = line.name or (line.product_id.name if line.product_id else '')
+                line_vals['product_uom_qty'] = line.quantity
+                line_vals['price_unit'] = line.unit_price * price_multiplier
+                if line.product_id:
+                    line_vals['product_id'] = line.product_id.id
+                if line.product_uom_id:
+                    line_vals['product_uom_id'] = line.product_uom_id.id
+                if line.tax_ids:
+                    line_vals['tax_ids'] = [(6, 0, line.tax_ids.ids)]
+                if line.discount:
+                    line_vals['discount'] = line.discount
+                if self.analytic_account_id:
+                    line_vals['analytic_distribution'] = {str(self.analytic_account_id.id): 100.0}
+            lines.append(line_vals)
+        return lines
+
     def action_approve(self):
         if not self.env.user.has_group('job_card_management.group_can_approve_estimate'):
             raise UserError(_('You are not allowed to approve estimates.'))
         self.state = 'approved'
         self._generate_access_token()
 
-        if self.customer_id.partner_id:
-            sale_order = self.env['sale.order'].create({
-                'partner_id': self.customer_id.partner_id.id,
-                'origin': self.name,
-            })
-            self.sale_order_id = sale_order.id
-            for line in self.estimate_lines:
-                line_vals = {'order_id': sale_order.id}
-                if line.display_type:
-                    line_vals['display_type'] = line.display_type
-                    line_vals['name'] = line.name
-                else:
-                    line_vals['name'] = line.name or (line.product_id.name if line.product_id else '')
-                    line_vals['product_uom_qty'] = line.quantity
-                    line_vals['price_unit'] = line.unit_price
-                    if line.product_id:
-                        line_vals['product_id'] = line.product_id.id
-                    if line.product_uom_id:
-                        line_vals['product_uom_id'] = line.product_uom_id.id
-                    if line.tax_ids:
-                        line_vals['tax_ids'] = [(6, 0, line.tax_ids.ids)]
-                    if line.discount:
-                        line_vals['discount'] = line.discount
-                    if self.analytic_account_id:
-                        line_vals['analytic_distribution'] = {str(self.analytic_account_id.id): 100.0}
-                self.env['sale.order.line'].create(line_vals)
-            sale_order.action_confirm()
-        else:
+        if not self.customer_id.partner_id:
             raise UserError(_('Customer has no linked partner. Please save the customer again.'))
 
     def action_redo(self):
@@ -250,6 +520,11 @@ class Estimate(models.Model):
                 if sale_order.state not in ('cancel', 'done'):
                     sale_order.action_cancel()
                 estimate.sale_order_id = False
+            if estimate.insurance_sale_order_id:
+                insurance_so = estimate.insurance_sale_order_id
+                if insurance_so.state not in ('cancel', 'done'):
+                    insurance_so.action_cancel()
+                estimate.insurance_sale_order_id = False
             estimate.state = 'draft'
 
     def action_open_job_card(self):
@@ -259,10 +534,10 @@ class Estimate(models.Model):
             raise UserError(_('Job card already opened for this estimate.'))
 
         today = fields.Date.today()
-        job_card = self.env['job.card'].create({
+        job_card = self.env['job.card'].with_context(skip_default_lines=True).create({
             'estimate_id': self.id,
             'customer_id': self.customer_id.id,
-            'second_customer_id': self.insurance_company_id.id,
+            'second_customer_id': self.insurance_company_id.id if self.insurance_company_id else False,
             'vehicle_id': self.vehicle_id.id,
             'start_date': today,
         })
@@ -271,7 +546,7 @@ class Estimate(models.Model):
                 'job_card_id': job_card.id,
                 'sequence': line.sequence,
                 'display_type': line.display_type,
-                'name': line.name,
+                'name': line.name if line.name else (line.product_id.name if line.product_id else ''),
                 'line_category': line.line_category,
                 'product_id': line.product_id.id if line.product_id else False,
                 'product_uom_id': line.product_uom_id.id if line.product_uom_id else False,
@@ -279,9 +554,19 @@ class Estimate(models.Model):
                 'unit_price': line.unit_price,
                 'discount': line.discount,
             }
+            if line.line_category:
+                line_vals[f'{line.line_category}_job_card_id'] = job_card.id
             if line.tax_ids:
                 line_vals['tax_ids'] = [(6, 0, line.tax_ids.ids)]
             self.env['job.card.line'].create(line_vals)
+            
+        job_card.write({
+            'excess_percentage': self.excess_percentage,
+            'excess_amount': self.excess_amount,
+            'betterment_percentage': self.betterment_percentage,
+            'betterment_amount': self.betterment_amount,
+        })
+            
         self.write({
             'has_job_card': True,
             'job_card_id': job_card.id,
@@ -385,6 +670,12 @@ class EstimateLine(models.Model):
     _order = 'sequence, id'
 
     estimate_id = fields.Many2one('estimate', string='Estimate', ondelete='cascade')
+    parts_estimate_id = fields.Many2one('estimate', string='Estimate (Parts)', ondelete='cascade')
+    consumables_estimate_id = fields.Many2one('estimate', string='Estimate (Consumables)', ondelete='cascade')
+    repairs_estimate_id = fields.Many2one('estimate', string='Estimate (Repairs)', ondelete='cascade')
+    paint_estimate_id = fields.Many2one('estimate', string='Estimate (Paint)', ondelete='cascade')
+    sundries_estimate_id = fields.Many2one('estimate', string='Estimate (Sundries)', ondelete='cascade')
+    fittings_estimate_id = fields.Many2one('estimate', string='Estimate (Fittings)', ondelete='cascade')
     sequence = fields.Integer(string='Sequence', default=10)
     line_category = fields.Selection(
         LINE_CATEGORY_SELECTION,
@@ -430,6 +721,7 @@ class EstimateLine(models.Model):
             line.write({'tax_ids': [(5, 0, 0)]})
         return super().unlink()
 
+
     @api.depends('quantity', 'unit_price', 'discount', 'tax_ids')
     def _compute_amount(self):
         for line in self:
@@ -457,9 +749,9 @@ class EstimateLine(models.Model):
                     line.price_total = subtotal
                     line.tax_amount = 0
 
-    price_subtotal = fields.Float(string='Subtotal', compute='_compute_amount')
-    tax_amount = fields.Float(string='Tax', compute='_compute_amount')
-    price_total = fields.Float(string='Amount', compute='_compute_amount')
+    price_subtotal = fields.Float(string='Subtotal', compute='_compute_amount', store=True)
+    tax_amount = fields.Float(string='Tax', compute='_compute_amount', store=True)
+    price_total = fields.Float(string='Amount', compute='_compute_amount', store=True)
 
 
 class EstimatePortal(CustomerPortal):

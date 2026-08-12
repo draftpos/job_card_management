@@ -10,6 +10,8 @@ class Vehicle(models.Model):
 
     name = fields.Char(
         string='Vehicle Name',
+        compute='_compute_display_name',
+        store=True,
         help='Optional nickname for the vehicle.',
     )
     registration_number = fields.Char(string='Registration Number', required=True)
@@ -28,16 +30,17 @@ class Vehicle(models.Model):
         res = super(Vehicle, self).default_get(fields_list)
         if self.env.context.get('default_name'):
             res['registration_number'] = self.env.context.get('default_name')
-            if 'name' in res:
-                res['name'] = False
         return res
 
+    @api.depends('registration_number', 'make_id.name', 'model_id.name')
     def _compute_display_name(self):
         for vehicle in self:
             parts = [vehicle.registration_number]
             if vehicle.make_id and vehicle.model_id:
                 parts.append(f"({vehicle.make_id.name} {vehicle.model_id.name})")
-            vehicle.display_name = " ".join(filter(None, parts))
+            display_val = " ".join(filter(None, parts))
+            vehicle.display_name = display_val
+            vehicle.name = display_val
     year_of_manufacture = fields.Integer(string='Year of Manufacture')
     color = fields.Char(string='Color')
 

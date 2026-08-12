@@ -9,8 +9,27 @@
             <xpath expr="//form" position="inside">
                 <app data-string="Job Card" string="Job Card" name="job_card_management" groups="base.group_system">
                     <block title="General Settings" name="job_card_general_setting_container">
-                        <setting string="Default Terms" help="Default terms and conditions for quotations.">
+                        <setting string="Quotation Terms" help="Default terms and conditions for quotations.">
                             <field name="job_card_default_terms" class="w-100"/>
+                        </setting>
+                        <setting string="Purchase Terms" help="Default terms and conditions for purchase orders.">
+                            <field name="purchase_default_terms" class="w-100"/>
+                        </setting>
+                    </block>
+                    <block title="Requisition Settings" name="job_card_requisition_setting_container">
+                        <setting string="Service Requisitions" help="Allow Consumables and Sundries to be requisitioned.">
+                            <field name="allow_service_requisition"/>
+                        </setting>
+                    </block>
+                    <block title="Billing Settings" name="job_card_billing_setting_container">
+                        <setting string="Excess Billing Policy" help="How excess and insurance are calculated on job cards.">
+                            <field name="job_card_billing_policy"/>
+                        </setting>
+                        <setting string="Enable Betterment" help="Enable Betterment field on Job Cards.">
+                            <field name="enable_betterment"/>
+                        </setting>
+                        <setting string="Betterment Billing Policy" help="How betterment is calculated." invisible="not enable_betterment">
+                            <field name="betterment_billing_policy"/>
                         </setting>
                     </block>
                     <block title="Quotation Print Format" name="job_card_quotation_print_setting_container">

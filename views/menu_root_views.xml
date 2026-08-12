@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <menuitem id="menu_job_card_root" name="Job Card" sequence="10"/>
+    <menuitem id="menu_job_card_root" name="Job Card" sequence="10" web_icon="job_card_management,static/description/icon.png"/>
 </odoo>
