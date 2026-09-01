@@ -35,7 +35,7 @@
                         <group>
                             <field name="job_card_id"/>
                             <field name="vehicle_id"/>
-                            <field name="dest_location_id"/>
+                            <field name="analytic_distribution" widget="analytic_distribution" groups="analytic.group_analytic_accounting" options="{'force_applicability': 'optional'}"/>
                         </group>
                     </group>
                     <notebook>
@@ -47,7 +47,7 @@
                         <field name="notes" placeholder="Notes..."/>
                         <field name="issue_date" readonly="1"/>
                         <field name="all_issued" readonly="1"/>
-                        <field name="stock_picking_id" invisible="1"/>
+                        <field name="scrap_ids" widget="many2many_tags" invisible="not scrap_ids"/>
                     </group>
                 </sheet>
             </form>

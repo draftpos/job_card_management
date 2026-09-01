@@ -55,8 +55,21 @@ class JobConsumableIssue(models.Model):
 
     issue_line_ids = fields.One2many('job.consumable.issue.line', 'issue_id', string='Lines')
     stock_picking_id = fields.Many2one('stock.picking', string='Transfer', readonly=True)
+    scrap_ids = fields.Many2many('stock.scrap', string='Scraps', readonly=True)
+    analytic_distribution = fields.Json(
+        string='Analytic Distribution',
+        compute='_compute_analytic_distribution', store=True, readonly=False
+    )
     notes = fields.Text(string='Notes')
     issue_date = fields.Date(string='Issue Date', default=fields.Date.today)
+
+    @api.depends('job_card_id.analytic_account_id')
+    def _compute_analytic_distribution(self):
+        for rec in self:
+            if rec.job_card_id and rec.job_card_id.analytic_account_id:
+                rec.analytic_distribution = {str(rec.job_card_id.analytic_account_id.id): 100.0}
+            else:
+                rec.analytic_distribution = False
 
     all_issued = fields.Boolean(string='All Issued', compute='_compute_all_issued', store=True)
 
@@ -125,34 +138,38 @@ class JobConsumableIssue(models.Model):
         if not stockable_lines:
             raise UserError(_('No stockable items with issued quantity > 0.'))
 
-        pick_type = self.env['stock.picking.type'].search(
-            [('code', '=', 'internal')], limit=1
-        )
-        if not pick_type:
-            raise UserError(_('No internal transfer operation type found.'))
+        scrap_location = self.env['stock.location'].search([
+            ('scrap_location', '=', True),
+            ('company_id', 'in', [self.env.company.id, False])
+        ], limit=1)
+        if not scrap_location:
+            raise UserError(_('No scrap location found.'))
 
-        moves = [(0, 0, {
-            'product_id': line.product_id.id,
-            'product_uom_qty': line.issued_qty,
-            'product_uom': line.uom_id.id or line.product_id.uom_id.id,
-            'location_id': self.source_location_id.id,
-            'location_dest_id': self.dest_location_id.id,
-        }) for line in stockable_lines]
+        scraps = self.env['stock.scrap']
+        for line in stockable_lines:
+            scrap_vals = {
+                'product_id': line.product_id.id,
+                'scrap_qty': line.issued_qty,
+                'product_uom_id': line.uom_id.id or line.product_id.uom_id.id,
+                'location_id': self.source_location_id.id,
+                'scrap_location_id': scrap_location.id,
+                'origin': self.name,
+                'analytic_distribution': self.analytic_distribution,
+                'company_id': self.env.company.id,
+            }
+            scrap = self.env['stock.scrap'].create(scrap_vals)
+            scrap.action_validate()
+            scraps |= scrap
 
-        picking = self.env['stock.picking'].create({
-            'picking_type_id': pick_type.id,
-            'location_id': self.source_location_id.id,
-            'location_dest_id': self.dest_location_id.id,
-            'move_ids': moves,
-        })
-        picking.action_confirm()
-        self.stock_picking_id = picking.id
+        self.scrap_ids = scraps.ids
         self.state = 'issued'
         self._update_job_card_consumable_state()
+        
+        scrap_names = ", ".join(scraps.mapped('name'))
         wizard = self.env['consumable.issue.success.wizard'].create({
             'issue_id': self.id,
             'job_card_id': self.job_card_id.id,
-            'picking_name': picking.name,
+            'picking_name': scrap_names,
         })
         
         return {
