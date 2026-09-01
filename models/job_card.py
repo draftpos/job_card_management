@@ -610,10 +610,24 @@ class JobCard(models.Model):
     job_cost_total = fields.Float(string='Job Cost Total', compute='_compute_job_cost_count')
 
     def _compute_job_cost_count(self):
+        JobCost = self.env['job.cost']
         for rec in self:
-            cost = self.env['job.cost'].search([('job_card_id', '=', rec.id)], limit=1)
+            cost = JobCost.search([('job_card_id', '=', rec.id)], limit=1)
             rec.job_cost_count = 1 if cost else 0
-            rec.job_cost_total = cost.total_cost if cost else 0.0
+            
+            # Dynamically compute the expected total cost so it's always up-to-date on the smart button
+            total = 0.0
+            for line in rec.job_card_lines.filtered(lambda l: not l.display_type):
+                cost_price = JobCost._get_latest_cost(line.product_id)
+                total += line.quantity * cost_price
+                
+            issued_consumables = rec.consumable_issue_ids.filtered(lambda i: i.state == 'issued')
+            for issue in issued_consumables:
+                for issue_line in issue.issue_line_ids.filtered(lambda l: l.issued_qty > 0):
+                    cost_price = issue_line.product_id.standard_price
+                    total += issue_line.issued_qty * cost_price
+                    
+            rec.job_cost_total = total
 
     def action_view_inventory_issues(self):
         self.ensure_one()
