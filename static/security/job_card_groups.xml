@@ -21,4 +21,14 @@
     <record id="group_can_redo_estimate" model="res.groups">
         <field name="name">Can Redo Estimates</field>
     </record>
+
+    <!-- NEW: Can Edit Approved Estimate/Job Card Lines -->
+    <record id="group_can_edit_approved_lines" model="res.groups">
+        <field name="name">Can Edit Approved Lines (Estimate &amp; Job Card)</field>
+    </record>
+
+    <!-- NEW: Can Approve Purchase Orders -->
+    <record id="group_can_approve_purchase_order" model="res.groups">
+        <field name="name">Can Approve Purchase Orders</field>
+    </record>
 </odoo>

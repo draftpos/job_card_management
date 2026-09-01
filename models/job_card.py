@@ -42,7 +42,8 @@ class JobCard(models.Model):
     order_number = fields.Char(string='Order NO:')
     claims_number = fields.Char(string='Claims NO:')
     excess_percentage = fields.Float(string='Excess (%)', help='Percentage paid by first customer')
-    excess_amount = fields.Float(string='Excess AMT')
+    excess_amount = fields.Float(string='Excess AMT', default=0.0)
+    excess_warning_reason = fields.Char(string='Excess Zero Reason', help='Reason why excess amount is 0')
     insurance_percentage = fields.Float(string='Insurance Percentage (%)', compute='_compute_insurance_pct', store=True)
     insurance_amount = fields.Float(string='Insurance AMT')
 
@@ -105,30 +106,30 @@ class JobCard(models.Model):
     )
     start_date = fields.Date(string='Start Date Expected', required=True)
     end_date = fields.Date(string='End Date Expected')
-    job_card_lines = fields.One2many('job.card.line', 'job_card_id', string='Job Card Lines')
+    job_card_lines = fields.One2many('job.card.line', 'job_card_id', string='Job Card Lines', copy=True)
     parts_line_ids = fields.One2many(
         'job.card.line', 'parts_job_card_id', string='Supply Parts',
-        domain=[('line_category', '=', 'parts')],
+        domain=[('line_category', '=', 'parts')], copy=True
     )
     consumables_line_ids = fields.One2many(
         'job.card.line', 'consumables_job_card_id', string='Consumables',
-        domain=[('line_category', '=', 'consumables')],
+        domain=[('line_category', '=', 'consumables')], copy=True
     )
     repairs_line_ids = fields.One2many(
         'job.card.line', 'repairs_job_card_id', string='Repair Works',
-        domain=[('line_category', '=', 'repairs')],
+        domain=[('line_category', '=', 'repairs')], copy=True
     )
     paint_line_ids = fields.One2many(
         'job.card.line', 'paint_job_card_id', string='Paint Job',
-        domain=[('line_category', '=', 'paint')],
+        domain=[('line_category', '=', 'paint')], copy=True
     )
     sundries_line_ids = fields.One2many(
         'job.card.line', 'sundries_job_card_id', string='Sundries',
-        domain=[('line_category', '=', 'sundries')],
+        domain=[('line_category', '=', 'sundries')], copy=True
     )
     fittings_line_ids = fields.One2many(
         'job.card.line', 'fittings_job_card_id', string='Fittings',
-        domain=[('line_category', '=', 'fittings')],
+        domain=[('line_category', '=', 'fittings')], copy=True
     )
     
     # Invoice tracking fields
@@ -407,12 +408,16 @@ class JobCard(models.Model):
         # Create invoice for customer (excess amount)
         customer_lines = self._prepare_invoice_lines('customer', income_account)
         if customer_lines and self.customer_id and self.customer_id.partner_id:
+            customer_terms = self.env['ir.config_parameter'].sudo().get_param('job_card_management.customer_invoice_default_terms', default='')
+            narration = customer_terms if customer_terms else f"Customer portion of Job Card {self.name}"
+            
             customer_invoice = self.env['account.move'].create({
                 'move_type': 'out_invoice',
                 'partner_id': self.customer_id.partner_id.id,
                 'invoice_origin': self.name,
                 'invoice_line_ids': customer_lines,
                 'invoice_date': invoice_date,
+                'narration': narration,
                 'ref': f"Job Card: {self.name} - Customer Portion",
             })
             customer_invoice.action_post()
@@ -421,6 +426,9 @@ class JobCard(models.Model):
         # Create invoice for insurance (insurance portion)
         insurance_lines = self._prepare_invoice_lines('insurance', income_account)
         if insurance_lines and self.second_customer_id and self.second_customer_id.partner_id:
+            insurance_terms = self.env['ir.config_parameter'].sudo().get_param('job_card_management.insurance_invoice_default_terms', default='')
+            narration = insurance_terms if insurance_terms else f"Insurance portion of Job Card {self.name}"
+            
             insurance_invoice = self.env['account.move'].create({
                 'move_type': 'out_invoice',
                 'is_insurance_invoice': True,
@@ -428,6 +436,7 @@ class JobCard(models.Model):
                 'invoice_origin': self.name,
                 'invoice_line_ids': insurance_lines,
                 'invoice_date': invoice_date,
+                'narration': narration,
                 'ref': f"Job Card: {self.name} - Insurance Portion",
             })
             insurance_invoice.action_post()
@@ -453,14 +462,16 @@ class JobCard(models.Model):
             elif line.price_total > 0:
                 if invoice_type == 'customer':
                     price = line.price_total * (self.excess_percentage / 100)
+                    price_unit = price / line.quantity if line.quantity > 0 else price
                 else:  # insurance
-                    price = line.price_total * (self.insurance_percentage / 100)
+                    price = line.quantity * line.rate_2
+                    price_unit = line.rate_2
                 
                 if price > 0:
                     invoice_line_vals = {
                         'name': line.name or (line.product_id.name if line.product_id else 'Job Card Service'),
                         'quantity': line.quantity,
-                        'price_unit': price / line.quantity if line.quantity > 0 else price,
+                        'price_unit': price_unit,
                         'account_id': income_account.id,
                     }
                     
@@ -481,10 +492,19 @@ class JobCard(models.Model):
     inventory_issue_count = fields.Integer(string='Inventory Issues Count', compute='_compute_inventory_issue_count')
     all_inventory_issued = fields.Boolean(string='All Inventory Issued', compute='_compute_all_inventory_issued', store=True)
 
-    @api.depends('inventory_issue_ids')
+    consumable_issue_ids = fields.One2many('job.consumable.issue', 'job_card_id', string='Consumable Issues')
+    consumable_issue_count = fields.Integer(string='Consumable Issues Count', compute='_compute_consumable_issue_count')
+    all_consumables_issued = fields.Boolean(string='All Consumables Issued', tracking=True, default=False)
+
+    @api.depends('consumable_issue_ids', 'consumable_issue_ids.state')
+    def _compute_consumable_issue_count(self):
+        for rec in self:
+            rec.consumable_issue_count = len(rec.consumable_issue_ids.filtered(lambda i: i.state == 'issued'))
+
+    @api.depends('inventory_issue_ids', 'inventory_issue_ids.state')
     def _compute_inventory_issue_count(self):
         for rec in self:
-            rec.inventory_issue_count = len(rec.inventory_issue_ids)
+            rec.inventory_issue_count = len(rec.inventory_issue_ids.filtered(lambda i: i.state == 'issued'))
 
     @api.depends('inventory_issue_ids.all_issued')
     def _compute_all_inventory_issued(self):
@@ -495,20 +515,31 @@ class JobCard(models.Model):
             )
             
             if not allow_service:
-                job_lines = job_lines.filtered(lambda l: l.product_id.type == 'product')
+                job_lines = job_lines.filtered(lambda l: l.product_id.type in ('product', 'consu'))
                 
             if not job_lines:
                 rec.all_inventory_issued = True
                 continue
 
             all_issued = True
-            for line in job_lines:
+            procurements = self.env['procurement'].search([('job_card_id', '=', rec.id)])
+            for product in job_lines.mapped('product_id'):
+                required_qty = sum(job_lines.filtered(lambda l: l.product_id == product).mapped('quantity'))
                 issued_qty = sum(
                     rec.inventory_issue_ids.mapped('issue_line_ids')
-                    .filtered(lambda il: il.job_card_line_id == line)
+                    .filtered(lambda il: il.product_id == product)
                     .mapped('issued_qty')
                 )
-                if issued_qty < line.quantity:
+                
+                # Add internal transfer quantities from procurement
+                internal_transfer_qty = sum(
+                    procurements.mapped('procurement_lines')
+                    .filtered(lambda pl: pl.type == 'internal_transfer' and not pl.display_type and pl.product_id.id == product.id)
+                    .mapped('quantity')
+                )
+                issued_qty += internal_transfer_qty
+                
+                if issued_qty < required_qty:
                     all_issued = False
                     break
                     
@@ -516,49 +547,30 @@ class JobCard(models.Model):
 
     def action_issue_inventory(self):
         self.ensure_one()
-        source_loc_id = int(self.env['ir.config_parameter'].sudo().get_param('job_card_management.default_source_location', 0))
-        allow_service = self.env['ir.config_parameter'].sudo().get_param('job_card_management.allow_service_requisition', 'False') == 'True'
-        
-        lines_to_create = []
-        job_lines = self.job_card_lines.filtered(
-            lambda l: not l.display_type and l.product_id
-        )
-        for line in job_lines:
-            product = line.product_id
-            is_service = product.type != 'product'
-            
-            if not allow_service and is_service:
-                continue
-                
-            available_qty = 0.0
-            if not is_service and source_loc_id:
-                quants = self.env['stock.quant'].search([
-                    ('product_id', '=', product.id),
-                    ('location_id', 'child_of', source_loc_id),
-                ])
-                available_qty = sum(quants.mapped('available_quantity'))
-            lines_to_create.append((0, 0, {
-                'product_id': product.id,
-                'job_card_line_id': line.id,
-                'required_qty': line.quantity,
-                'issued_qty': 0.0,
-                'available_qty': available_qty,
-                'uom_id': line.product_uom_id.id if line.product_uom_id else product.uom_id.id,
-                'is_service': is_service,
-            }))
+        if not self.parts_line_ids:
+            raise UserError(_('There are no parts lines to issue.'))
             
         return {
             'type': 'ir.actions.act_window',
-            'name': 'Issue Inventory',
+            'name': _('Issue Inventory'),
             'res_model': 'job.inventory.issue',
             'view_mode': 'form',
-            'context': {
-                'default_job_card_id': self.id,
-                'default_issue_line_ids': lines_to_create,
-            },
-            'target': 'current',
+            'context': {'default_job_card_id': self.id},
         }
 
+    def action_issue_consumables(self):
+        self.ensure_one()
+        if not self.consumables_line_ids:
+            raise UserError(_('There are no consumable lines to issue.'))
+            
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Issue Consumables'),
+            'res_model': 'job.consumable.issue',
+            'view_mode': 'form',
+            'context': {'default_job_card_id': self.id},
+        }
+            
     state = fields.Selection([
         ('draft', 'Draft'),
         ('approved', 'Approved'),
@@ -594,6 +606,51 @@ class JobCard(models.Model):
     amount_tax = fields.Float(string='Total Tax', compute='_compute_total', store=True)
     amount_total = fields.Float(string='Total Incl', compute='_compute_total', store=True)
 
+    job_cost_count = fields.Integer(string='Job Cost', compute='_compute_job_cost_count')
+    job_cost_total = fields.Float(string='Job Cost Total', compute='_compute_job_cost_count')
+
+    def _compute_job_cost_count(self):
+        for rec in self:
+            cost = self.env['job.cost'].search([('job_card_id', '=', rec.id)], limit=1)
+            rec.job_cost_count = 1 if cost else 0
+            rec.job_cost_total = cost.total_cost if cost else 0.0
+
+    def action_view_inventory_issues(self):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Inventory Issues'),
+            'res_model': 'job.inventory.issue',
+            'view_mode': 'list,form',
+            'domain': [('job_card_id', '=', self.id)],
+            'context': {'default_job_card_id': self.id},
+        }
+
+    def action_view_consumables_issues(self):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Consumable Issues'),
+            'res_model': 'job.consumable.issue.line',
+            'view_mode': 'list,form',
+            'domain': [('issue_id.job_card_id', '=', self.id), ('issue_id.state', '=', 'issued')],
+        }
+
+    def action_view_job_cost(self):
+        self.ensure_one()
+        cost = self.env['job.cost'].search([('job_card_id', '=', self.id)], limit=1)
+        if not cost:
+            cost = self.env['job.cost'].create({'job_card_id': self.id})
+        cost.compute_costs()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Job Cost'),
+            'res_model': 'job.cost',
+            'res_id': cost.id,
+            'view_mode': 'form',
+            'target': 'current',
+        }
+
 # Workflow actions with validations - function to reopen job card added at the end
     def action_reopen(self):
         """Reopen a completed or delivered job card back to draft"""
@@ -624,10 +681,10 @@ class JobCard(models.Model):
                 else:
                     rec.insurance_percentage = 0.0
 
-    @api.onchange('second_customer_id', 'amount_total')
+    @api.onchange('second_customer_id')
     def _onchange_insurance_company_defaults(self):
         if not self.second_customer_id:
-            self.excess_amount = self.amount_total or 0.0
+            self.excess_amount = 0.0
             self.betterment_amount = 0.0
 
     @api.depends('vehicle_id', 'vehicle_id.registration_number', 'vehicle_id.make_id.name', 'vehicle_id.model_id.name')
@@ -758,12 +815,24 @@ class JobCard(models.Model):
         return lines
 
     def action_approve_job_card(self):
-
         for rec in self:
+            # Soft excess warning: if insurance company is set but excess is 0
+            if rec.second_customer_id and not rec.excess_amount and not rec.excess_warning_reason:
+                return {
+                    'type': 'ir.actions.act_window',
+                    'name': 'Excess Amount Warning',
+                    'res_model': 'job.card.excess.warning.wizard',
+                    'view_mode': 'form',
+                    'target': 'new',
+                    'context': {
+                        'default_job_card_id': rec.id,
+                    }
+                }
+
             rec.state = 'pending_inventory'
             if not rec.access_token:
                 rec._generate_access_token()
-                
+
             # Create Sales Orders if not already created
             if not rec.customer_sale_order_id:
                 has_insurance = bool(
@@ -894,8 +963,6 @@ class JobCard(models.Model):
 
     def action_start_job(self):
         self._check_schedule_dates()
-        if not self.all_inventory_issued:
-            raise UserError(_('You cannot start the job until all inventory items have been issued or requisitioned.'))
         self.state = 'in_progress'
         return True
 
@@ -911,8 +978,8 @@ class JobCard(models.Model):
             'job_card_id': self.id,
             'analytic_account_id': self.analytic_account_id.id if self.analytic_account_id else False,
         })
-        # Create procurement lines from job card lines, keeping sections and notes
-        for line in self.job_card_lines:
+        # Create procurement lines from supply parts lines only
+        for line in self.parts_line_ids:
             if line.display_type:
                 self.env['procurement.line'].create({
                     'procurement_id': procurement.id,
@@ -931,9 +998,8 @@ class JobCard(models.Model):
                     'quantity': line.quantity,
                     'buying_price': line.product_id.standard_price or 0.0,
                     'selling_price': line.unit_price or line.product_id.lst_price or 0.0,
-                    'type': 'purchase_order',  # Assume purchase order for external procurement
+                    'type': 'purchase_order',
                 })
-        self.state = 'requisition_started'
         return {
             'type': 'ir.actions.act_window',
             'res_model': 'procurement',
@@ -970,7 +1036,9 @@ class JobCard(models.Model):
         if not self.excess_percentage and self.billing_policy_setting == 'percentage':
             raise UserError(_('Please set the Excess percentage.'))
         if not self.all_inventory_issued:
-            raise UserError(_('You cannot finalize the job until all inventory items have been issued.'))
+            raise UserError(_('You cannot finalize the job until all parts have been issued or requisitioned.'))
+        if self.consumables_line_ids and not self.all_consumables_issued:
+            raise UserError(_('You cannot finalize the job until all Consumables have been issued.'))
 
         # Ensure invoices are created (if not already created at open)
         self._generate_linked_invoices()
@@ -1120,6 +1188,24 @@ class JobCardLine(models.Model):
     price_subtotal = fields.Float(string='Subtotal', compute='_compute_amount', store=True)
     tax_amount = fields.Float(string='Tax', compute='_compute_amount', store=True)
     price_total = fields.Float(string='Amount', compute='_compute_amount', store=True)
+    rate_2 = fields.Float(string='Rate 2', compute='_compute_rate_2', store=True)
+
+    @api.depends('unit_price', 'job_card_id.amount_total', 'job_card_id.insurance_amount',
+                 'parts_job_card_id.amount_total', 'parts_job_card_id.insurance_amount',
+                 'consumables_job_card_id.amount_total', 'consumables_job_card_id.insurance_amount',
+                 'repairs_job_card_id.amount_total', 'repairs_job_card_id.insurance_amount',
+                 'paint_job_card_id.amount_total', 'paint_job_card_id.insurance_amount',
+                 'sundries_job_card_id.amount_total', 'sundries_job_card_id.insurance_amount',
+                 'fittings_job_card_id.amount_total', 'fittings_job_card_id.insurance_amount')
+    def _compute_rate_2(self):
+        for line in self:
+            parent = (line.job_card_id or line.parts_job_card_id or line.consumables_job_card_id or 
+                      line.repairs_job_card_id or line.paint_job_card_id or line.sundries_job_card_id or 
+                      line.fittings_job_card_id)
+            if parent and parent.amount_total > 0:
+                line.rate_2 = (line.unit_price / parent.amount_total) * parent.insurance_amount
+            else:
+                line.rate_2 = 0.0
 
 
 

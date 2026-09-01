@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <template id="report_purchaseorder_document_custom" inherit_id="purchase.report_purchaseorder_document">
+            <xpath expr="//t[@t-call='web.external_layout']" position="replace">
+                <t t-call="web.basic_layout">
+                    <t t-set="o" t-value="o.with_context(lang=o.partner_id.lang)" />
+                    <div class="header">
+                        <div class="row mb-2">
+                            <div class="col-12 text-center">
+                                <h2 style="font-weight: bold; text-transform: uppercase; color: #1a1a2e; margin: 0; letter-spacing: 1px; font-size: 24px;">
+                                    <t t-if="o.state in ['draft', 'sent', 'to approve']">Request for Quotation</t>
+                                    <t t-if="o.state in ['purchase', 'done']">Purchase Order</t>
+                                    <t t-if="o.state == 'cancel'">Cancelled Purchase Order</t>
+                                    <t t-if="o.name != '/'"> <span t-field="o.name"/></t>
+                                </h2>
+                            </div>
+                        </div>
+                        <div class="row align-items-center" style="border-bottom: 2px solid #1a1a2e; padding-bottom: 10px; margin-bottom: 10px;">
+                            <div class="col-6">
+                                <img t-if="res_company.logo" t-att-src="image_data_uri(res_company.logo)" style="max-height: 80px;" alt="Logo"/>
+                                <h3 t-else="" style="color: #1a1a2e; font-weight: bold;"><span t-field="res_company.name"/></h3>
+                            </div>
+                            <div class="col-6 text-end" style="font-size: 14px; color: #555;">
+                                <div style="font-weight: bold; color: #1a1a2e; font-size: 16px;"><span t-field="res_company.name"/></div>
+                                <div t-if="res_company.street"><span t-field="res_company.street"/></div>
+                                <div>
+                                    <t t-if="res_company.city"><span t-field="res_company.city"/></t>
+                                    <t t-if="res_company.country_id">, <span t-field="res_company.country_id.name"/></t>
+                                </div>
+                                <div t-if="res_company.phone">Phone: <span t-field="res_company.phone"/></div>
+                                <div t-if="res_company.email">Email: <span t-field="res_company.email"/></div>
+                                <div t-if="res_company.custom_vat">VAT NO: <span t-field="res_company.custom_vat"/></div>
+                                <div t-if="res_company.custom_tin">TIN NO: <span t-field="res_company.custom_tin"/></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="page" style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding-top: 30px;">
+                        <div class="row mb-4">
+                            <div class="col-6">
+                                <h6 style="color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Vendor Details</h6>
+                                <div style="background-color: #f8f9fa; padding: 15px; border-radius: 6px; border-left: 4px solid #1a1a2e;">
+                                    <strong style="font-size: 16px; color: #1a1a2e;"><span t-field="o.partner_id.name"/></strong>
+                                    <div t-if="o.partner_id.street" style="margin-top: 5px; font-size: 14px;"><span t-field="o.partner_id.street"/></div>
+                                    <div style="font-size: 14px;">
+                                        <t t-if="o.partner_id.city"><span t-field="o.partner_id.city"/></t>
+                                        <t t-if="o.partner_id.country_id">, <span t-field="o.partner_id.country_id.name"/></t>
+                                    </div>
+                                    <div t-if="o.partner_id.phone" style="margin-top: 5px; font-size: 14px;">Phone: <span t-field="o.partner_id.phone"/></div>
+                                    <div t-if="o.partner_id.vat" style="font-size: 14px;">VAT: <span t-field="o.partner_id.vat"/></div>
+                                </div>
+                            </div>
+                            <div class="col-6 text-end">
+                                <table style="width: 100%; border-collapse: separate; border-spacing: 0 8px;">
+                                    <tr>
+                                        <td style="border: none; padding: 4px 10px; font-weight: bold; font-size: 14px;">Order Date:</td>
+                                        <td class="text-end" style="border: none; padding: 4px 10px; font-size: 14px;">
+                                            <span t-field="o.date_approve" t-options='{"widget": "date"}' t-if="o.state in ['purchase', 'done']"/>
+                                            <span t-field="o.date_order" t-options='{"widget": "date"}' t-else=""/>
+                                        </td>
+                                    </tr>
+                                    <tr t-if="o.partner_ref">
+                                        <td style="border: none; padding: 4px 10px; font-weight: bold; font-size: 14px;">Vendor Reference:</td>
+                                        <td class="text-end" style="border: none; padding: 4px 10px; font-size: 14px;"><span t-field="o.partner_ref"/></td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Lines Table -->
+                        <table class="table o_main_table table-borderless mb-0" id="invoice_table" style="border: none; width: 100%;">
+                            <thead>
+                                <tr style="border-bottom: 3px solid #000 !important;">
+                                    <th name="th_description" class="text-start" style="border: none; padding: 16px 14px; font-size: 14px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.6px; text-transform: uppercase;">Description</th>
+                                    <th name="th_quantity" class="text-end" style="border: none; padding: 16px 14px; font-size: 14px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.6px; text-transform: uppercase;">Quantity</th>
+                                    <th name="th_priceunit" class="text-end" style="border: none; padding: 16px 14px; font-size: 14px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.6px; text-transform: uppercase;">Unit Price</th>
+                                    <th name="th_tax_amount" class="text-end" style="border: none; padding: 16px 14px; font-size: 14px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.6px; text-transform: uppercase;">VAT</th>
+                                    <th name="th_subtotal" class="text-end" style="border: none; padding: 16px 14px; font-size: 14px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.6px; text-transform: uppercase;">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody class="invoice_tbody">
+                                <t t-foreach="o.order_line.filtered(lambda l: l.display_type not in ('line_section', 'line_note'))" t-as="line">
+                                    <tr>
+                                        <td style="border: none; border-bottom: 1px solid #e0e0e0; padding: 14px 14px; font-size: 15px; color: #333; letter-spacing: 0.4px;">
+                                            <span t-field="line.name"/>
+                                        </td>
+                                        <td class="text-end" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 14px 14px; font-size: 15px; color: #333; letter-spacing: 0.4px;">
+                                            <span t-esc="'{:.2f}'.format(line.product_qty)"/>
+                                        </td>
+                                        <td class="text-end" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 14px 14px; font-size: 15px; color: #333; letter-spacing: 0.4px;">
+                                            $ <span t-esc="'{:.2f}'.format(line.price_unit)"/>
+                                        </td>
+                                        <td class="text-end" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 14px 14px; font-size: 15px; color: #333; letter-spacing: 0.4px;">
+                                            $ <span t-esc="'{:.2f}'.format(line.price_total - line.price_subtotal)"/>
+                                        </td>
+                                        <td class="text-end o_price_total" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 14px 14px; font-size: 15px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.4px;">
+                                            $ <span t-esc="'{:.2f}'.format(line.price_total)"/>
+                                        </td>
+                                    </tr>
+                                </t>
+                            </tbody>
+                        </table>
+
+                        <!-- Totals -->
+                        <div class="row mt-3">
+                            <div class="col-7"/>
+                            <div class="col-5">
+                                <table class="table table-sm table-borderless" style="border: none; border-top: 3px solid #000;">
+                                    <tr class="o_subtotal">
+                                        <td style="border: none; padding: 10px 12px; font-size: 15px; color: #333; letter-spacing: 0.4px;">Total Excl</td>
+                                        <td class="text-end" style="border: none; padding: 10px 12px; font-size: 15px; color: #333;">
+                                            $ <span t-esc="'{:.2f}'.format(o.amount_untaxed)"/>
+                                        </td>
+                                    </tr>
+                                    <tr class="o_taxes">
+                                        <td style="border: none; padding: 10px 12px; font-size: 15px; color: #333; letter-spacing: 0.4px;">Total VAT</td>
+                                        <td class="text-end" style="border: none; padding: 10px 12px; font-size: 15px; color: #333;">
+                                            $ <span t-esc="'{:.2f}'.format(o.amount_tax)"/>
+                                        </td>
+                                    </tr>
+                                    <tr class="o_total">
+                                        <td style="border: none; padding: 12px 12px; font-size: 17px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.5px;"><strong>Total Incl</strong></td>
+                                        <td class="text-end" style="border: none; padding: 12px 12px; font-size: 17px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.5px;">
+                                            <strong>$ <span t-esc="'{:.2f}'.format(o.amount_total)"/></strong>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <!-- Notes -->
+                        <div class="row mt-4" t-if="o.notes">
+                            <div class="col-12">
+                                <h5 style="color: #1a1a2e; font-weight: bold; border-bottom: 2px solid #1a1a2e; padding-bottom: 5px;">Notes</h5>
+                                <div style="font-size: 13px; color: #555; padding-top: 10px; line-height: 1.1;">
+                                    <span t-out="o.notes"/>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </t>
+            </xpath>
+        </template>
+    </data>
+</odoo>

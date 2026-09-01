@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_excess_warning_wizard_form" model="ir.ui.view">
+        <field name="name">job.card.excess.warning.wizard.form</field>
+        <field name="model">job.card.excess.warning.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Excess Amount Warning">
+                <sheet>
+                    <div class="alert alert-warning" role="alert">
+                        <strong>⚠️ Excess Amount is Zero</strong><br/>
+                        The Excess Amount for this Job Card is currently <strong>$0.00</strong>.
+                        Please either go back and set the correct Excess Amount, or provide a reason below to proceed anyway.
+                    </div>
+                    <group>
+                        <field name="job_card_id" readonly="1"/>
+                        <field name="reason" placeholder="e.g. Cash job - no insurance, excess waived, etc."/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_proceed" string="Proceed Anyway" type="object" class="btn-warning"/>
+                    <button string="Cancel &amp; Set Excess" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

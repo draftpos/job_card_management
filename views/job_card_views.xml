@@ -16,15 +16,16 @@
                     <button name="action_approve_job_card" string="Approve Job Card" type="object" invisible="state not in ['draft']"/>
                     
                     <!-- Approved state buttons -->
-                    <button name="action_issue_inventory" string="Issue Inventory" type="object" class="btn-primary" invisible="state not in ['pending_inventory', 'pending_items', 'requisition_started']"/>
+                    <button name="action_issue_inventory" string="Issue Inventory" type="object" class="btn-primary" invisible="state not in ['in_progress', 'pending_inventory', 'pending_items', 'requisition_started'] or all_inventory_issued"/>
+                    <button name="action_issue_consumables" string="Issue Consumables" type="object" class="btn-secondary" invisible="state not in ['in_progress', 'pending_inventory', 'pending_items'] or all_consumables_issued"/>
                     <button name="action_start_job" string="Start Job" type="object" class="btn-primary" invisible="state not in ['inventory_issued', 'requisition_started', 'pending_inventory']"/>
-                    <button name="action_create_requisition" string="Requisition" type="object" invisible="state not in ['approved', 'pending_inventory', 'in_progress']" class="btn-primary"/>
+                    <button name="action_create_requisition" string="Requisition" type="object" invisible="state not in ['approved', 'pending_inventory']" class="btn-primary"/>
                     
                     <!-- In Progress state buttons -->
                     <button name="action_finalize_job_card" string="Finalize Job Card" type="object" invisible="state not in ['in_progress']"/>
                     
                     <!-- Completed/Delivered state buttons - REOPEN -->
-                    <button name="action_reopen" string="Reopen" type="object" icon="fa-undo" class="btn-warning" invisible="state not in ('completed', 'delivered')" confirm="Are you sure you want to reopen this job card? It will be moved back to draft." groups="job_card_management.group_can_reopen_job_card"/>
+                    <button name="action_reopen" string="Reopen / Edit" type="object" icon="fa-undo" class="btn-warning" invisible="state == 'draft'" confirm="Are you sure you want to reopen this job card? It will be moved back to draft for editing." groups="job_card_management.group_can_reopen_job_card"/>
                     
                     <!-- Portal Preview button -->
                     <button name="action_preview_portal" string="Preview" type="object" class="btn-secondary"/>
@@ -45,8 +46,14 @@
                     </div>
 
                     <div class="oe_button_box" name="button_box">
-                        <button name="action_issue_inventory" type="object" class="oe_stat_button" icon="fa-cubes" invisible="inventory_issue_count == 0">
+                        <button name="action_view_job_cost" type="object" class="oe_stat_button" icon="fa-usd">
+                            <field name="job_cost_total" widget="statinfo" string="Job Cost" options="{'currency_field': 'currency_id'}"/>
+                        </button>
+                        <button name="action_view_inventory_issues" type="object" class="oe_stat_button" icon="fa-cubes" invisible="inventory_issue_count == 0">
                             <field name="inventory_issue_count" widget="statinfo" string="Inventory Issues"/>
+                        </button>
+                        <button name="action_view_consumables_issues" type="object" class="oe_stat_button" icon="fa-wrench" invisible="consumable_issue_count == 0">
+                            <field name="consumable_issue_count" widget="statinfo" string="Consumables Issues"/>
                         </button>
                     </div>
                     
@@ -67,6 +74,7 @@
                             <field name="billing_policy_setting" invisible="1"/>
                             <field name="betterment_billing_policy_setting" invisible="1"/>
                             <field name="enable_betterment_setting" invisible="1"/>
+                            <field name="all_inventory_issued" invisible="1"/>
                             <field name="second_customer_id" readonly="state in ('completed', 'delivered')"/>
                             <field name="authorization_type" widget="radio" options="{'horizontal': True}" invisible="not second_customer_id"/>
                             <field name="authorization_letter_filename" invisible="1"/>
@@ -106,12 +114,11 @@
                     <notebook>
                         <page string="Supply Parts" name="parts_lines">
                             <field name="parts_line_ids" widget="section_and_note_one2many" nolabel="1"
-                                readonly="state in ('completed', 'delivered')"
+                                readonly="estimate_id or state != 'draft'"
                                 context="{'default_line_category': 'parts'}">
                                 <list editable="bottom">
                                     <control>
                                         <create name="add_product_control" string="Add a product"/>
-                                        <create name="add_section_control" string="Add a section" context="{'default_display_type': 'line_section', 'default_line_category': 'parts'}"/>
                                     </control>
                                     <field name="line_category" column_invisible="True"/>
                                     <field name="display_type" column_invisible="True"/>
@@ -121,6 +128,7 @@
                                     <field name="quantity" optional="show" invisible="display_type in ('line_section', 'line_note')"/>
                                     <field name="product_uom_id" optional="show" invisible="display_type in ('line_section', 'line_note')" groups="uom.group_uom"/>
                                     <field name="unit_price" optional="show" invisible="display_type in ('line_section', 'line_note')"/>
+                                    <field name="rate_2" optional="hide" invisible="display_type in ('line_section', 'line_note')"/>
                                     <field name="tax_ids" column_invisible="1"/>
                                     <field name="discount" column_invisible="1"/>
                                     <field name="tax_amount" optional="show" string="VAT" invisible="display_type in ('line_section', 'line_note')" readonly="1"/>
@@ -131,12 +139,11 @@
                         </page>
                         <page string="Consumables" name="consumables_lines">
                             <field name="consumables_line_ids" widget="section_and_note_one2many" nolabel="1"
-                                readonly="state in ('completed', 'delivered')"
+                                readonly="estimate_id or state != 'draft'"
                                 context="{'default_line_category': 'consumables'}">
                                 <list editable="bottom">
                                     <control>
                                         <create name="add_product_control" string="Add a product"/>
-                                        <create name="add_section_control" string="Add a section" context="{'default_display_type': 'line_section', 'default_line_category': 'consumables'}"/>
                                     </control>
                                     <field name="line_category" column_invisible="True"/>
                                     <field name="display_type" column_invisible="True"/>
@@ -146,6 +153,7 @@
                                     <field name="quantity" optional="show" invisible="display_type in ('line_section', 'line_note')"/>
                                     <field name="product_uom_id" optional="show" invisible="display_type in ('line_section', 'line_note')" groups="uom.group_uom"/>
                                     <field name="unit_price" optional="show" invisible="display_type in ('line_section', 'line_note')"/>
+                                    <field name="rate_2" optional="hide" invisible="display_type in ('line_section', 'line_note')"/>
                                     <field name="tax_ids" column_invisible="1"/>
                                     <field name="discount" column_invisible="1"/>
                                     <field name="tax_amount" optional="show" string="VAT" invisible="display_type in ('line_section', 'line_note')" readonly="1"/>
@@ -156,12 +164,11 @@
                         </page>
                         <page string="Repair Works" name="repairs_lines">
                             <field name="repairs_line_ids" widget="section_and_note_one2many" nolabel="1"
-                                readonly="state in ('completed', 'delivered')"
+                                readonly="estimate_id or state != 'draft'"
                                 context="{'default_line_category': 'repairs'}">
                                 <list editable="bottom">
                                     <control>
                                         <create name="add_product_control" string="Add a product"/>
-                                        <create name="add_section_control" string="Add a section" context="{'default_display_type': 'line_section', 'default_line_category': 'repairs'}"/>
                                     </control>
                                     <field name="line_category" column_invisible="True"/>
                                     <field name="display_type" column_invisible="True"/>
@@ -171,6 +178,7 @@
                                     <field name="quantity" optional="show" invisible="display_type in ('line_section', 'line_note')"/>
                                     <field name="product_uom_id" optional="show" invisible="display_type in ('line_section', 'line_note')" groups="uom.group_uom"/>
                                     <field name="unit_price" optional="show" invisible="display_type in ('line_section', 'line_note')"/>
+                                    <field name="rate_2" optional="hide" invisible="display_type in ('line_section', 'line_note')"/>
                                     <field name="tax_ids" optional="show" string="VAT" widget="many2many_tags" invisible="display_type in ('line_section', 'line_note')"/>
                                     <field name="discount" optional="show" invisible="display_type in ('line_section', 'line_note')"/>
                                     <field name="tax_amount" optional="show" string="VAT Amount" invisible="display_type in ('line_section', 'line_note')" readonly="1"/>
@@ -181,12 +189,11 @@
                         </page>
                         <page string="Paint Job" name="paint_lines">
                             <field name="paint_line_ids" widget="section_and_note_one2many" nolabel="1"
-                                readonly="state in ('completed', 'delivered')"
+                                readonly="estimate_id or state != 'draft'"
                                 context="{'default_line_category': 'paint'}">
                                 <list editable="bottom">
                                     <control>
                                         <create name="add_product_control" string="Add a product"/>
-                                        <create name="add_section_control" string="Add a section" context="{'default_display_type': 'line_section', 'default_line_category': 'paint'}"/>
                                     </control>
                                     <field name="line_category" column_invisible="True"/>
                                     <field name="display_type" column_invisible="True"/>
@@ -196,6 +203,7 @@
                                     <field name="quantity" optional="show" invisible="display_type in ('line_section', 'line_note')"/>
                                     <field name="product_uom_id" optional="show" invisible="display_type in ('line_section', 'line_note')" groups="uom.group_uom"/>
                                     <field name="unit_price" optional="show" invisible="display_type in ('line_section', 'line_note')"/>
+                                    <field name="rate_2" optional="hide" invisible="display_type in ('line_section', 'line_note')"/>
                                     <field name="tax_ids" optional="show" string="VAT" widget="many2many_tags" invisible="display_type in ('line_section', 'line_note')"/>
                                     <field name="discount" optional="show" invisible="display_type in ('line_section', 'line_note')"/>
                                     <field name="tax_amount" optional="show" string="VAT Amount" invisible="display_type in ('line_section', 'line_note')" readonly="1"/>
@@ -206,12 +214,11 @@
                         </page>
                         <page string="Sundries" name="sundries_lines">
                             <field name="sundries_line_ids" widget="section_and_note_one2many" nolabel="1"
-                                readonly="state in ('completed', 'delivered')"
+                                readonly="estimate_id or state != 'draft'"
                                 context="{'default_line_category': 'sundries'}">
                                 <list editable="bottom">
                                     <control>
                                         <create name="add_product_control" string="Add a product"/>
-                                        <create name="add_section_control" string="Add a section" context="{'default_display_type': 'line_section', 'default_line_category': 'sundries'}"/>
                                     </control>
                                     <field name="line_category" column_invisible="True"/>
                                     <field name="display_type" column_invisible="True"/>
@@ -221,6 +228,7 @@
                                     <field name="quantity" optional="show" invisible="display_type in ('line_section', 'line_note')"/>
                                     <field name="product_uom_id" optional="show" invisible="display_type in ('line_section', 'line_note')" groups="uom.group_uom"/>
                                     <field name="unit_price" optional="show" invisible="display_type in ('line_section', 'line_note')"/>
+                                    <field name="rate_2" optional="hide" invisible="display_type in ('line_section', 'line_note')"/>
                                     <field name="tax_ids" column_invisible="1"/>
                                     <field name="discount" column_invisible="1"/>
                                     <field name="tax_amount" optional="show" string="VAT" invisible="display_type in ('line_section', 'line_note')" readonly="1"/>
@@ -231,12 +239,11 @@
                         </page>
                         <page string="Fittings" name="fittings_lines">
                             <field name="fittings_line_ids" widget="section_and_note_one2many" nolabel="1"
-                                readonly="state in ('completed', 'delivered')"
+                                readonly="estimate_id or state != 'draft'"
                                 context="{'default_line_category': 'fittings'}">
                                 <list editable="bottom">
                                     <control>
                                         <create name="add_product_control" string="Add a product"/>
-                                        <create name="add_section_control" string="Add a section" context="{'default_display_type': 'line_section', 'default_line_category': 'fittings'}"/>
                                     </control>
                                     <field name="line_category" column_invisible="True"/>
                                     <field name="display_type" column_invisible="True"/>
@@ -246,6 +253,7 @@
                                     <field name="quantity" optional="show" invisible="display_type in ('line_section', 'line_note')"/>
                                     <field name="product_uom_id" optional="show" invisible="display_type in ('line_section', 'line_note')" groups="uom.group_uom"/>
                                     <field name="unit_price" optional="show" invisible="display_type in ('line_section', 'line_note')"/>
+                                    <field name="rate_2" optional="hide" invisible="display_type in ('line_section', 'line_note')"/>
                                     <field name="tax_ids" optional="show" string="VAT" widget="many2many_tags" invisible="display_type in ('line_section', 'line_note')"/>
                                     <field name="discount" optional="show" invisible="display_type in ('line_section', 'line_note')"/>
                                     <field name="tax_amount" optional="show" string="VAT Amount" invisible="display_type in ('line_section', 'line_note')" readonly="1"/>

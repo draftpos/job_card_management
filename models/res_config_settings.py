@@ -9,8 +9,16 @@ class ResConfigSettings(models.TransientModel):
     )
     
     purchase_default_terms = fields.Html(
-        string='Default Purchase Terms and Conditions',
-        help="Default terms and conditions added to new purchase orders."
+        string='Purchase Terms',
+        help='Default terms and conditions for purchase orders.'
+    )
+    customer_invoice_default_terms = fields.Html(
+        string='Customer Invoice Terms',
+        help='Default terms and conditions for customer invoices.'
+    )
+    insurance_invoice_default_terms = fields.Html(
+        string='Insurance Invoice Terms',
+        help='Default terms and conditions for insurance invoices.'
     )
     
     allow_service_requisition = fields.Boolean(
@@ -44,6 +52,14 @@ class ResConfigSettings(models.TransientModel):
         string='Show Address',
         config_parameter='job_card_management.print_customer_address',
         default=True
+    )
+
+    # Pick Slip Print Settings
+    hide_company_details_pick_slip = fields.Boolean(
+        string='Hide Company Details on Pick Slip',
+        config_parameter='job_card_management.hide_company_details_pick_slip',
+        default=False,
+        help='If enabled, company address/phone/email will NOT be printed on the Pick Slip.'
     )
 
     # Vehicle Required Settings
@@ -92,7 +108,9 @@ class ResConfigSettings(models.TransientModel):
         res = super(ResConfigSettings, self).get_values()
         res.update(
             job_card_default_terms=self.env['ir.config_parameter'].sudo().get_param('job_card_management.default_terms', default=''),
-            purchase_default_terms=self.env['ir.config_parameter'].sudo().get_param('job_card_management.purchase_default_terms', default='')
+            purchase_default_terms=self.env['ir.config_parameter'].sudo().get_param('job_card_management.purchase_default_terms', default=''),
+            customer_invoice_default_terms=self.env['ir.config_parameter'].sudo().get_param('job_card_management.customer_invoice_default_terms', default=''),
+            insurance_invoice_default_terms=self.env['ir.config_parameter'].sudo().get_param('job_card_management.insurance_invoice_default_terms', default=''),
         )
         return res
 
@@ -100,3 +118,5 @@ class ResConfigSettings(models.TransientModel):
         super(ResConfigSettings, self).set_values()
         self.env['ir.config_parameter'].sudo().set_param('job_card_management.default_terms', self.job_card_default_terms or '')
         self.env['ir.config_parameter'].sudo().set_param('job_card_management.purchase_default_terms', self.purchase_default_terms or '')
+        self.env['ir.config_parameter'].sudo().set_param('job_card_management.customer_invoice_default_terms', self.customer_invoice_default_terms or '')
+        self.env['ir.config_parameter'].sudo().set_param('job_card_management.insurance_invoice_default_terms', self.insurance_invoice_default_terms or '')

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_consumable_issue_success_wizard_form" model="ir.ui.view">
+        <field name="name">consumable.issue.success.wizard.form</field>
+        <field name="model">consumable.issue.success.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Consumables Issued">
+                <field name="job_card_id" invisible="1"/>
+                <field name="picking_name" invisible="1"/>
+                <field name="countdown_placeholder"
+                       widget="consumable_redirect_countdown"
+                       nolabel="1"/>
+                <footer>
+                    <button name="action_go_to_job_card"
+                            string="Go to Job Card Now"
+                            type="object"
+                            class="btn-primary"/>
+                    <button special="cancel"
+                            string="Stay Here"
+                            class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

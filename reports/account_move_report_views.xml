@@ -29,12 +29,12 @@
                             </div>
                             <div t-if="res_company.phone">Phone: <span t-field="res_company.phone"/></div>
                             <div t-if="res_company.email">Email: <span t-field="res_company.email"/></div>
-                            <div t-if="res_company.vat"><strong>VAT NO: </strong> <span t-field="res_company.vat"/> </div>
-                            <div t-if="res_company.company_registry"><strong>TIN: </strong> <span t-field="res_company.company_registry"/> </div>
+                            <div t-if="res_company.custom_vat"><strong>VAT NO: </strong> <span t-field="res_company.custom_vat"/> </div>
+                            <div t-if="res_company.custom_tin"><strong>TIN NO: </strong> <span t-field="res_company.custom_tin"/> </div>
                         </div>
                     </div>
                 </div>
-                <div class="page" style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; line-height: 1.7; letter-spacing: 0.4px; color: #333; margin-top: 0px !important; padding-top: 0px !important;">
+                <div class="page" style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; line-height: 1.7; letter-spacing: 0.4px; color: #333; margin-top: 0px !important; padding-top: 30px !important;">
                     
                     <div class="row mt-1 mb-3" style="margin-top: 0px !important; padding-top: 0px !important;">
                         <div class="col-6">
@@ -133,7 +133,7 @@
                     <div class="row mt-4" t-if="o.narration">
                         <div class="col-12">
                             <h5 style="color: #1a1a2e; font-weight: bold; border-bottom: 2px solid #1a1a2e; padding-bottom: 5px;">Terms and Conditions</h5>
-                            <div style="font-size: 13px; color: #555; padding-top: 10px;">
+                            <div style="font-size: 13px; color: #555; padding-top: 10px; line-height: 1.1;">
                                 <span t-out="o.narration"/>
                             </div>
                         </div>

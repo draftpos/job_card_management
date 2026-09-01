@@ -5,6 +5,7 @@ from . import res_config_settings
 from . import vehicle
 from . import estimate
 from . import job_card
+from . import job_cost
 from . import procurement
 from . import technician
 from . import job_card_profitability
@@ -12,3 +13,7 @@ from . import job_card_dashboard
 from . import inventory_issue
 from . import account_move
 from . import purchase_order
+from . import stock_picking
+from . import consumable_issue
+from . import consumable_issue_success_wizard
+from . import procurement_reject_wizard

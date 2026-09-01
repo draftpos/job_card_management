@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <template id="report_picking_price_columns" inherit_id="stock.report_picking">
+            <!-- Add headers -->
+            <xpath expr="//th[@name='th_quantity']" position="after">
+                <th name="th_price_unit" class="text-end">
+                    <strong>Unit Price</strong>
+                </th>
+                <th name="th_price_total" class="text-end">
+                    <strong>Total Price</strong>
+                </th>
+            </xpath>
+            
+            <!-- Add columns for the main move rows -->
+            <xpath expr="//td[@class='o_td_quantity text-end']" position="after">
+                <td class="text-end">
+                    <span t-field="move.price_unit" t-options='{"widget": "monetary", "display_currency": o.company_id.currency_id}'/>
+                </td>
+                <td class="text-end">
+                    <t t-set="total_price" t-value="(move.quantity or 0.0) * move.price_unit"/>
+                    <span t-esc="total_price" t-options='{"widget": "monetary", "display_currency": o.company_id.currency_id}'/>
+                </td>
+            </xpath>
+            
+            <!-- Add columns for the move lines (when multiple lines exist for a move) -->
+            <!-- The second td in the breakdown row is the quantity -->
+            <xpath expr="//t[@t-if='move_has_multiple_lines']/tr/td[2]" position="after">
+                <td class="text-end">
+                    <span t-field="move.price_unit" t-options='{"widget": "monetary", "display_currency": o.company_id.currency_id}'/>
+                </td>
+                <td class="text-end">
+                    <t t-set="line_total" t-value="(line.quantity or 0.0) * move.price_unit"/>
+                    <span t-esc="line_total" t-options='{"widget": "monetary", "display_currency": o.company_id.currency_id}'/>
+                </td>
+            </xpath>
+        </template>
+    </data>
+</odoo>

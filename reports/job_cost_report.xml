@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_report_job_cost" model="ir.actions.report">
+        <field name="paperformat_id" ref="job_card_management.paperformat_custom_header"/>
+        <field name="name">Job Cost Report</field>
+        <field name="model">job.cost</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">job_card_management.report_job_cost_template</field>
+        <field name="report_file">job_card_management.report_job_cost_template</field>
+        <field name="print_report_name">'Job Cost - ' + object.name</field>
+    </record>
+
+    <template id="report_job_cost_template">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-call="web.basic_layout">
+                    <div class="header">
+                        <div class="row mb-2">
+                            <div class="col-12 text-center">
+                                <h2 style="font-weight: bold; text-transform: uppercase; color: #1a1a2e; margin: 0; letter-spacing: 1px; font-size: 24px;">
+                                    JOB COST <span t-if="doc.name" t-field="doc.name"/>
+                                </h2>
+                            </div>
+                        </div>
+                        <div class="row align-items-center" style="border-bottom: 2px solid #1a1a2e; padding-bottom: 10px; margin-bottom: 10px;">
+                            <div class="col-6">
+                                <img t-if="res_company.logo" t-att-src="image_data_uri(res_company.logo)" style="max-height: 80px;" alt="Logo"/>
+                                <h3 t-else="" style="color: #1a1a2e; font-weight: bold;"><span t-field="res_company.name"/></h3>
+                            </div>
+                            <div class="col-6 text-end" style="font-size: 14px; color: #555;">
+                                <div style="font-weight: bold; color: #1a1a2e; font-size: 16px;"><span t-field="res_company.name"/></div>
+                                <div t-if="res_company.street"><span t-field="res_company.street"/></div>
+                                <div>
+                                    <t t-if="res_company.city"><span t-field="res_company.city"/></t>
+                                    <t t-if="res_company.country_id">, <span t-field="res_company.country_id.name"/></t>
+                                </div>
+                                <div t-if="res_company.phone">Phone: <span t-field="res_company.phone"/></div>
+                                <div t-if="res_company.email">Email: <span t-field="res_company.email"/></div>
+                                <div t-if="res_company.custom_vat"><strong>VAT NO: </strong> <span t-field="res_company.custom_vat"/> </div>
+                                <div t-if="res_company.custom_tin"><strong>TIN NO: </strong> <span t-field="res_company.custom_tin"/> </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="page" style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; line-height: 1.7; letter-spacing: 0.4px; color: #333; margin-top: 0px !important; padding-top: 30px !important;">
+                        
+                        <div class="row mt-1 mb-3" style="margin-top: 0px !important; padding-top: 0px !important;">
+                            <div class="col-6">
+                                <div t-if="doc.job_card_id.customer_id" style="font-size: 14px;">
+                                    <strong>Customer Details:</strong><br/>
+                                    <span t-field="doc.job_card_id.customer_id.name"/><br/>
+                                    <t t-if="doc.job_card_id.customer_id.street"><span t-field="doc.job_card_id.customer_id.street"/><br/></t>
+                                    <t t-if="doc.job_card_id.customer_id.city"><span t-field="doc.job_card_id.customer_id.city"/><t t-if="doc.job_card_id.customer_id.country">, <span t-field="doc.job_card_id.customer_id.country"/></t><br/></t>
+                                    <t t-if="doc.job_card_id.customer_id.phone">Phone: <span t-field="doc.job_card_id.customer_id.phone"/><br/></t>
+                                    <t t-if="doc.job_card_id.customer_id.email">Email: <span t-field="doc.job_card_id.customer_id.email"/></t>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <table class="table table-sm table-borderless" style="border: none;">
+                                    <tr>
+                                        <td style="border: none; padding: 4px 10px; font-weight: bold; font-size: 14px;">Date:</td>
+                                        <td class="text-end" style="border: none; padding: 4px 10px; font-size: 14px;"><span t-field="doc.create_date" t-options='{"widget": "date"}'/></td>
+                                    </tr>
+                                    <tr t-if="doc.job_card_id">
+                                        <td style="border: none; padding: 4px 10px; font-weight: bold; font-size: 14px;">Job Card:</td>
+                                        <td class="text-end" style="border: none; padding: 4px 10px; font-size: 14px;"><span t-field="doc.job_card_id.name"/></td>
+                                    </tr>
+                                    <tr t-if="doc.job_card_id.vehicle_id">
+                                        <td style="border: none; padding: 4px 10px; font-weight: bold; font-size: 14px;">Vehicle:</td>
+                                        <td class="text-end" style="border: none; padding: 4px 10px; font-size: 14px;"><span t-field="doc.job_card_id.vehicle_id.name"/> <t t-if="doc.job_card_id.vehicle_id.registration_number">(<span t-field="doc.job_card_id.vehicle_id.registration_number"/>)</t></td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Lines Table -->
+                        <table class="table o_main_table table-borderless mb-0" id="job_cost_table" style="border: none; width: 100%;">
+                            <thead>
+                                <tr style="border-bottom: 3px solid #000 !important;">
+                                    <th name="th_category" class="text-start" style="border: none; padding: 16px 14px; font-size: 14px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.6px; text-transform: uppercase;">Category</th>
+                                    <th name="th_description" class="text-start" style="border: none; padding: 16px 14px; font-size: 14px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.6px; text-transform: uppercase;">Description</th>
+                                    <th name="th_quantity" class="text-end" style="border: none; padding: 16px 14px; font-size: 14px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.6px; text-transform: uppercase;">Quantity</th>
+                                    <th name="th_unitcost" class="text-end" style="border: none; padding: 16px 14px; font-size: 14px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.6px; text-transform: uppercase;">Unit Cost</th>
+                                    <th name="th_subtotal" class="text-end" style="border: none; padding: 16px 14px; font-size: 14px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.6px; text-transform: uppercase;">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody class="job_cost_tbody">
+                                <t t-foreach="doc.cost_line_ids" t-as="line">
+                                    <tr>
+                                        <td style="border: none; border-bottom: 1px solid #e0e0e0; padding: 14px 14px; font-size: 15px; color: #333; letter-spacing: 0.4px;">
+                                            <span t-field="line.category"/>
+                                        </td>
+                                        <td style="border: none; border-bottom: 1px solid #e0e0e0; padding: 14px 14px; font-size: 15px; color: #333; letter-spacing: 0.4px;">
+                                            <span t-field="line.description"/>
+                                        </td>
+                                        <td class="text-end" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 14px 14px; font-size: 15px; color: #333; letter-spacing: 0.4px;">
+                                            <span t-esc="'{:.2f}'.format(line.quantity)"/>
+                                        </td>
+                                        <td class="text-end" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 14px 14px; font-size: 15px; color: #333; letter-spacing: 0.4px;">
+                                            $ <span t-esc="'{:.2f}'.format(line.unit_cost)"/>
+                                        </td>
+                                        <td class="text-end o_price_total" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 14px 14px; font-size: 15px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.4px;">
+                                            $ <span t-esc="'{:.2f}'.format(line.total)"/>
+                                        </td>
+                                    </tr>
+                                </t>
+                            </tbody>
+                        </table>
+
+                        <!-- Totals -->
+                        <div class="row mt-3">
+                            <div class="col-7"/>
+                            <div class="col-5">
+                                <table class="table table-sm table-borderless" style="border: none; border-top: 3px solid #000;">
+                                    <tr class="o_total">
+                                        <td style="border: none; padding: 12px 12px; font-size: 17px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.5px;"><strong>Total Cost</strong></td>
+                                        <td class="text-end" style="border: none; padding: 12px 12px; font-size: 17px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.5px;">
+                                            <strong>$ <span t-esc="'{:.2f}'.format(doc.total_cost)"/></strong>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>

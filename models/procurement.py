@@ -27,6 +27,9 @@ class Procurement(models.Model):
         ('draft', 'Draft'),
         ('submitted_for_approval', 'Submit for Requisition Approval'),
         ('approved', 'Requisition Approved'),
+        ('pending_po_approval', 'Pending PO Approval'),
+        ('po_rejected', 'PO Rejected'),
+        ('rejected', 'Requisition Rejected'),
         ('purchase_order_created', 'Purchase Order Created')
     ], default='draft')
 
@@ -35,7 +38,12 @@ class Procurement(models.Model):
     purchase_order_created_count = fields.Integer(string='Purchase Orders Created', compute='_compute_procurement_stats')
     internal_transfer_created_count = fields.Integer(string='Internal Transfers Created', compute='_compute_procurement_stats')
     receipt_delivered_count = fields.Integer(string='Delivered Items', compute='_compute_procurement_stats')
+    is_procurement_approver = fields.Boolean(compute='_compute_is_procurement_approver')
     
+    def _compute_is_procurement_approver(self):
+        for record in self:
+            record.is_procurement_approver = self.env.user.has_group('job_card_management.group_can_approve_purchase_order')
+            
     @api.depends('job_card_id')
     def _compute_total_amount(self):
         for record in self:
@@ -72,10 +80,27 @@ class Procurement(models.Model):
             raise UserError(_('You are not allowed to approve requisitions.'))
         self.state = 'approved'
 
-    def action_create_purchase_order(self):
-        if self.state != 'approved':
-            raise UserError(_('Requisition must be approved before creating purchase orders.'))
+    def action_reject_requisition(self):
+        return {
+            'name': 'Reject Requisition',
+            'type': 'ir.actions.act_window',
+            'res_model': 'procurement.reject.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {'default_procurement_id': self.id, 'default_reject_type': 'requisition'}
+        }
 
+    def action_reject_po(self):
+        return {
+            'name': 'Reject Purchase Order',
+            'type': 'ir.actions.act_window',
+            'res_model': 'procurement.reject.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {'default_procurement_id': self.id, 'default_reject_type': 'po'}
+        }
+
+    def _generate_purchase_orders(self):
         # Check for zero/unset buying price on all purchase order lines
         zero_price_lines = self.procurement_lines.filtered(
             lambda l: not l.display_type and l.type == 'purchase_order' and not l.buying_price
@@ -90,7 +115,7 @@ class Procurement(models.Model):
             lambda l: (
                 not l.vendor_id
                 or not l.vendor_id.partner_id
-                or not l.vendor_id.partner_id.is_supplier
+                or (l.vendor_id.partner_id.supplier_rank or 0) < 1
             )
         )
         if missing_vendor_lines:
@@ -124,6 +149,17 @@ class Procurement(models.Model):
                 if analytic_account:
                     po_line_vals['analytic_distribution'] = {str(analytic_account.id): 100.0}
                 self.env['purchase.order.line'].create(po_line_vals)
+            
+            for line in lines:
+                line.write({'purchase_order_created': True})
+
+        # Internal transfers (type = internal_transfer)
+        for line in self.procurement_lines.filtered(lambda l: l.type == 'internal_transfer'):
+            line.write({'internal_transfer_created': True})
+
+    def _confirm_and_receive_pos(self):
+        pos = self.env['purchase.order'].search([('origin', '=', self.name), ('state', 'in', ['draft', 'sent', 'to approve'])])
+        for po in pos:
             po.button_confirm()
             
             # Auto-receive (validate all pickings/GRVs)
@@ -139,14 +175,28 @@ class Procurement(models.Model):
             for invoice in po.invoice_ids:
                 if invoice.state == 'draft':
                     invoice.action_post()
-                    
-            for line in lines:
-                line.write({'purchase_order_created': True})
 
-        # Internal transfers (type = internal_transfer)
-        for line in self.procurement_lines.filtered(lambda l: l.type == 'internal_transfer'):
-            line.write({'internal_transfer_created': True})
+    def action_create_submit_po(self):
+        if self.state != 'approved':
+            raise UserError(_('Requisition must be approved before creating purchase orders.'))
+        self._generate_purchase_orders()
+        self.state = 'pending_po_approval'
 
+    def action_create_approve_po(self):
+        if self.state != 'approved':
+            raise UserError(_('Requisition must be approved before creating purchase orders.'))
+        if not self.env.user.has_group('job_card_management.group_can_approve_procurement'):
+            raise UserError(_('You are not allowed to approve purchase orders.'))
+        self._generate_purchase_orders()
+        self._confirm_and_receive_pos()
+        self.state = 'purchase_order_created'
+
+    def action_approve_po(self):
+        if self.state != 'pending_po_approval':
+            raise UserError(_('Requisition must be pending PO approval.'))
+        if not self.env.user.has_group('job_card_management.group_can_approve_procurement'):
+            raise UserError(_('You are not allowed to approve purchase orders.'))
+        self._confirm_and_receive_pos()
         self.state = 'purchase_order_created'
 
     def action_view_purchase_orders(self):
@@ -250,7 +300,7 @@ class ProcurementLine(models.Model):
         'customer',
         string='Supplier',
         help='Editable only after requisition approved',
-        domain="[('customer_type', '=', 'main'), ('partner_id.is_supplier', '=', True)]",
+        domain="[('customer_type', '=', 'main'), ('partner_id.supplier_rank', '>=', 1)]",
     )
     receipt_status = fields.Selection([
         ('open', 'Open'),

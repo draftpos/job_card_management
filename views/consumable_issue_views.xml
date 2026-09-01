@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_job_consumable_issue_line_tree" model="ir.ui.view">
+        <field name="name">job.consumable.issue.line.tree</field>
+        <field name="model">job.consumable.issue.line</field>
+        <field name="arch" type="xml">
+            <list editable="bottom" create="1" edit="1" delete="1">
+                <field name="product_id"/>
+                <field name="uom_id"/>
+                <field name="required_qty" optional="show"/>
+                <field name="available_qty" optional="show"/>
+                <field name="issued_qty" string="Quantity"/>
+                <field name="shortage_qty" optional="show"/>
+                <field name="cost_price"/>
+                <field name="is_service" invisible="1"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_job_consumable_issue_form" model="ir.ui.view">
+        <field name="name">job.consumable.issue.form</field>
+        <field name="model">job.consumable.issue</field>
+        <field name="arch" type="xml">
+            <form string="Consumable Issue">
+                <header>
+                    <button name="action_issue" string="Issue Consumables" type="object" class="oe_highlight" invisible="state != 'draft'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,confirmed,issued"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name" string="Reference"/>
+                            <field name="customer_id"/>
+                            <field name="source_location_id"/>
+                        </group>
+                        <group>
+                            <field name="job_card_id"/>
+                            <field name="vehicle_id"/>
+                            <field name="dest_location_id"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Lines" name="lines">
+                            <field name="issue_line_ids" context="{'tree_view_ref': 'job_card_management.view_job_consumable_issue_line_tree'}"/>
+                        </page>
+                    </notebook>
+                    <group>
+                        <field name="notes" placeholder="Notes..."/>
+                        <field name="issue_date" readonly="1"/>
+                        <field name="all_issued" readonly="1"/>
+                        <field name="stock_picking_id" invisible="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+</odoo>

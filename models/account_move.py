@@ -2,6 +2,7 @@ from odoo import models, fields, api
 
 class AccountMove(models.Model):
     _inherit = 'account.move'
+    _order = 'id desc'
 
     is_insurance_invoice = fields.Boolean(string='Is Insurance Invoice', default=False)
 

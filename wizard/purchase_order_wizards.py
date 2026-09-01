@@ -1,0 +1,61 @@
+from odoo import api, fields, models, _
+
+class PurchaseOrderCloseWizard(models.TransientModel):
+    _name = 'purchase.order.close.wizard'
+    _description = 'Manual Purchase Order Close Wizard'
+
+    purchase_order_id = fields.Many2one('purchase.order', string="Purchase Order", required=True)
+    reason = fields.Text(string="Reason for Closing", required=True)
+
+    def action_confirm_close(self):
+        self.ensure_one()
+        po = self.purchase_order_id
+        po.closing_reason = self.reason
+        po.message_post(body=_("PO Manually Closed. Reason: %s") % self.reason, subtype_xmlid='mail.mt_note')
+        # Setting state to cancel releases quantities and budget
+        po.button_cancel()
+        return {'type': 'ir.actions.act_window_close'}
+
+
+class PurchaseOrderAmendWizard(models.TransientModel):
+    _name = 'purchase.order.amend.wizard'
+    _description = 'Purchase Order Supplier Amendment Wizard'
+
+    purchase_order_id = fields.Many2one('purchase.order', string="Original Purchase Order", required=True)
+    old_partner_id = fields.Many2one('res.partner', string="Current Supplier", readonly=True)
+    new_partner_id = fields.Many2one('res.partner', string="New Supplier", required=True)
+    reason = fields.Text(string="Reason for Amendment", required=True)
+
+    def action_confirm_amend(self):
+        self.ensure_one()
+        old_po = self.purchase_order_id
+        
+        # 1. Duplicate the PO with the new supplier
+        new_po = old_po.copy({
+            'partner_id': self.new_partner_id.id,
+            'is_amended': True,
+            'origin': old_po.name
+        })
+        
+        # 2. Cancel the old PO
+        old_po.closing_reason = _("Amended to new supplier %s. Reason: %s") % (self.new_partner_id.name, self.reason)
+        old_po.button_cancel()
+        old_po.message_post(
+            body=_("Supplier amended. This PO is cancelled and replaced by %s") % new_po._get_html_link(),
+            subtype_xmlid='mail.mt_note'
+        )
+        
+        # 3. Post a message on the new PO
+        new_po.message_post(
+            body=_("This PO was generated as an amendment of %s. Reason: %s") % (old_po._get_html_link(), self.reason),
+            subtype_xmlid='mail.mt_note'
+        )
+        
+        # 4. Redirect to the new PO
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'purchase.order',
+            'res_id': new_po.id,
+            'view_mode': 'form',
+            'target': 'current'
+        }

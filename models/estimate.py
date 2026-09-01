@@ -435,10 +435,10 @@ class Estimate(models.Model):
                 else:
                     rec.insurance_percentage = 0.0
 
-    @api.onchange('insurance_company_id', 'amount_total')
+    @api.onchange('insurance_company_id')
     def _onchange_insurance_company_defaults(self):
         if not self.insurance_company_id:
-            self.excess_amount = self.amount_total or 0.0
+            self.excess_amount = 0.0
             self.betterment_amount = 0.0
 
     @api.onchange('betterment_percentage', 'amount_total')

@@ -21,3 +21,15 @@ access_procurement_zero_price_wizard,procurement.zero.price.wizard,model_procure
 access_inventory_issue_user,job.inventory.issue.user.access,model_job_inventory_issue,base.group_user,1,1,1,1
 access_inventory_issue_line_user,job.inventory.issue.line.user.access,model_job_inventory_issue_line,base.group_user,1,1,1,1
 access_print_invoice_wizard,print.invoice.wizard,model_print_invoice_wizard,base.group_user,1,1,1,1
+access_grv_remaining_po_wizard,grv.remaining.po.wizard,model_grv_remaining_po_wizard,base.group_user,1,1,1,1
+access_grv_remaining_po_wizard_line,grv.remaining.po.wizard.line,model_grv_remaining_po_wizard_line,base.group_user,1,1,1,1
+access_job_cost,job.cost.user.access,model_job_cost,base.group_user,1,1,1,1
+access_job_cost_line,job.cost.line.user.access,model_job_cost_line,base.group_user,1,1,1,1
+access_job_card_edit_approved,Job Card Edit Approved,model_job_card,group_can_edit_approved_lines,1,1,1,1
+access_job_card_line_edit_approved,Job Card Line Edit Approved,model_job_card_line,group_can_edit_approved_lines,1,1,1,1
+access_estimate_edit_approved,Estimate Edit Approved,model_estimate,group_can_edit_approved_lines,1,1,1,1
+access_job_card_excess_warning_wizard,Job Card Excess Warning Wizard,model_job_card_excess_warning_wizard,base.group_user,1,1,1,1
+access_purchase_order_close_wizard,Purchase Order Close Wizard,model_purchase_order_close_wizard,base.group_user,1,1,1,1
+access_purchase_order_amend_wizard,Purchase Order Amend Wizard,model_purchase_order_amend_wizard,base.group_user,1,1,1,1
+access_job_consumable_issue,job.consumable.issue,model_job_consumable_issue,base.group_user,1,1,1,1
+access_job_consumable_issue_line,job.consumable.issue.line,model_job_consumable_issue_line,base.group_user,1,1,1,1

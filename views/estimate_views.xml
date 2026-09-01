@@ -170,7 +170,7 @@
                         <div t-if="doc.terms_and_conditions" class="row mt-4">
                             <div class="col-12" style="font-size: 13px; color: #555;">
                                 <strong>Terms and Conditions:</strong>
-                                <div style="margin-top: 5px;">
+                                <div style="margin-top: 5px; line-height: 1.1;">
                                     <span t-field="doc.terms_and_conditions"/>
                                 </div>
                             </div>
@@ -253,18 +253,13 @@
                             <field name="name" readonly="1"/>
                             <field name="customer_id" readonly="state in ('approved', 'converted')"/>
                             <field name="insurance_company_id" readonly="state in ('approved', 'converted')" context="{'default_customer_type': 'insurance'}"/>
-                            <!-- Excess: % only for percentage policy, AMT only for fixed policy -->
-                            <field name="excess_percentage" readonly="state in ('converted', 'cancel')"
-                                   invisible="billing_policy_setting == 'fixed'"/>
-                            <field name="excess_amount" readonly="state in ('converted', 'cancel') or billing_policy_setting == 'percentage'"/>
-                            <!-- Betterment fields: hidden when not enabled -->
-                            <field name="betterment_percentage" readonly="state in ('converted', 'cancel')"
-                                   invisible="not enable_betterment_setting or betterment_billing_policy_setting == 'fixed'"/>
-                            <field name="betterment_amount" readonly="state in ('converted', 'cancel') or betterment_billing_policy_setting == 'percentage'"
-                                   invisible="not enable_betterment_setting"/>
-                            <field name="insurance_percentage" readonly="1" string="Insurance Pays (%)"
-                                   invisible="not insurance_company_id"/>
-                            <field name="insurance_amount" readonly="1" invisible="not insurance_company_id"/>
+                            <!-- Excess/Betterment/Insurance amount fields hidden at quotation level -->
+                             <field name="excess_percentage" invisible="1"/>
+                             <field name="excess_amount" invisible="1"/>
+                             <field name="betterment_percentage" invisible="1"/>
+                             <field name="betterment_amount" invisible="1"/>
+                             <field name="insurance_percentage" invisible="1"/>
+                             <field name="insurance_amount" invisible="1"/>
                             <field name="authorization_type" widget="radio" options="{'horizontal': True}" invisible="not insurance_company_id"/>
                             <field name="authorization_letter_filename" invisible="1"/>
                             <field name="authorization_letter" filename="authorization_letter_filename" 

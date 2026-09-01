@@ -21,6 +21,34 @@
                     <field name="amount_total" nolabel="1" class="oe_subtotal_footer_separator"/>
                 </group>
             </xpath>
+            
+            <!-- Add Terms and Conditions page -->
+            <xpath expr="//notebook" position="inside">
+                <page string="Terms and Conditions" name="terms_and_conditions">
+                    <field name="notes" widget="html" nolabel="1"/>
+                </page>
+            </xpath>
+            
+            <!-- Hide Print buttons until approved -->
+            <xpath expr="//button[@name='print_quotation']" position="attributes">
+                <attribute name="invisible">state not in ('purchase', 'done')</attribute>
+            </xpath>
+            <xpath expr="//button[@name='%(purchase.action_report_purchase_order)d']" position="attributes">
+                <attribute name="invisible">state not in ('purchase', 'done')</attribute>
+            </xpath>
+            
+            <xpath expr="//button[@name='button_approve'][1]" position="attributes">
+                <attribute name="groups">job_card_management.group_can_approve_purchase_order</attribute>
+            </xpath>
+            <xpath expr="//button[@name='button_approve'][2]" position="attributes">
+                <attribute name="groups">job_card_management.group_can_approve_purchase_order</attribute>
+            </xpath>
+            
+            <!-- Add Custom Buttons -->
+            <xpath expr="//header" position="inside">
+                <button name="action_amend_supplier" string="Amend Supplier" type="object" invisible="state in ('done', 'cancel')"/>
+                <button name="action_manual_close" string="Close PO" type="object" class="btn-danger" invisible="state in ('done', 'cancel')"/>
+            </xpath>
         </field>
     </record>
 </odoo>

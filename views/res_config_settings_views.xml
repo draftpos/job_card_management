@@ -12,6 +12,12 @@
                         <setting string="Quotation Terms" help="Default terms and conditions for quotations.">
                             <field name="job_card_default_terms" class="w-100"/>
                         </setting>
+                        <setting string="Customer Invoice Terms" help="Default terms and conditions for customer invoices.">
+                            <field name="customer_invoice_default_terms" class="w-100"/>
+                        </setting>
+                        <setting string="Insurance Invoice Terms" help="Default terms and conditions for insurance invoices.">
+                            <field name="insurance_invoice_default_terms" class="w-100"/>
+                        </setting>
                         <setting string="Purchase Terms" help="Default terms and conditions for purchase orders.">
                             <field name="purchase_default_terms" class="w-100"/>
                         </setting>
@@ -28,8 +34,13 @@
                         <setting string="Enable Betterment" help="Enable Betterment field on Job Cards.">
                             <field name="enable_betterment"/>
                         </setting>
-                        <setting string="Betterment Billing Policy" help="How betterment is calculated." invisible="not enable_betterment">
+                        <setting string="Betterment Billing Policy" help="Define how betterment is billed" invisible="not enable_betterment">
                             <field name="betterment_billing_policy"/>
+                        </setting>
+                    </block>
+                    <block title="Pick Slip Print Format" name="job_card_pick_slip_setting_container">
+                        <setting string="Hide Company Details" help="If ticked, company address/phone/email will NOT appear on the Pick Slip printout.">
+                            <field name="hide_company_details_pick_slip"/>
                         </setting>
                     </block>
                     <block title="Quotation Print Format" name="job_card_quotation_print_setting_container">

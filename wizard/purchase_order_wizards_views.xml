@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Close PO Wizard View -->
+    <record id="view_purchase_order_close_wizard_form" model="ir.ui.view">
+        <field name="name">purchase.order.close.wizard.form</field>
+        <field name="model">purchase.order.close.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Close Purchase Order">
+                <sheet>
+                    <div class="alert alert-warning" role="alert">
+                        <strong>⚠️ You are about to close this Purchase Order.</strong><br/>
+                        This action will cancel the order, releasing any pending stock moves. Please provide a reason below.
+                    </div>
+                    <group>
+                        <field name="purchase_order_id" readonly="1"/>
+                        <field name="reason" placeholder="e.g. Items no longer required, cancelled by management, etc."/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_confirm_close" string="Close PO" type="object" class="btn-danger"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Amend PO Wizard View -->
+    <record id="view_purchase_order_amend_wizard_form" model="ir.ui.view">
+        <field name="name">purchase.order.amend.wizard.form</field>
+        <field name="model">purchase.order.amend.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Amend Supplier">
+                <sheet>
+                    <div class="alert alert-info" role="alert">
+                        <strong>ℹ️ Supplier Amendment</strong><br/>
+                        This will cancel the current Purchase Order and generate a new Draft PO with the selected new supplier.
+                    </div>
+                    <group>
+                        <field name="purchase_order_id" readonly="1"/>
+                        <field name="old_partner_id" readonly="1"/>
+                        <field name="new_partner_id" placeholder="Select new supplier..." domain="[('supplier_rank','>',0)]"/>
+                        <field name="reason" placeholder="e.g. Better pricing, stock availability, etc."/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_confirm_amend" string="Confirm Amendment" type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

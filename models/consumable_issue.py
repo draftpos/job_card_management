@@ -2,9 +2,9 @@ from odoo import models, fields, api, _
 from odoo.exceptions import UserError, ValidationError
 
 
-class JobInventoryIssue(models.Model):
-    _name = 'job.inventory.issue'
-    _description = 'Job Inventory Issue'
+class JobConsumableIssue(models.Model):
+    _name = 'job.consumable.issue'
+    _description = 'Job Consumable Issue'
     _order = 'id desc'
     _rec_name = 'name'
 
@@ -12,7 +12,7 @@ class JobInventoryIssue(models.Model):
 
     job_card_id = fields.Many2one(
         'job.card', string='Job Card', required=True,
-        domain="[('state', 'not in', ('draft', 'delivered', 'cancelled')), ('all_inventory_issued', '=', False)]"
+        domain="[('state', 'not in', ('draft', 'delivered', 'cancelled')), ('all_consumables_issued', '=', False)]"
     )
     customer_id = fields.Many2one(related='job_card_id.customer_id', string='Customer', store=True)
     vehicle_id = fields.Many2one(related='job_card_id.vehicle_id', string='Vehicle', store=True)
@@ -53,7 +53,7 @@ class JobInventoryIssue(models.Model):
         ('cancelled', 'Cancelled')
     ], string='Status', default='draft')
 
-    issue_line_ids = fields.One2many('job.inventory.issue.line', 'issue_id', string='Lines')
+    issue_line_ids = fields.One2many('job.consumable.issue.line', 'issue_id', string='Lines')
     stock_picking_id = fields.Many2one('stock.picking', string='Transfer', readonly=True)
     notes = fields.Text(string='Notes')
     issue_date = fields.Date(string='Issue Date', default=fields.Date.today)
@@ -69,7 +69,7 @@ class JobInventoryIssue(models.Model):
     def create(self, vals_list):
         for vals in vals_list:
             if vals.get('name', _('New')) == _('New'):
-                vals['name'] = self.env['ir.sequence'].next_by_code('inventory.issue') or _('New')
+                vals['name'] = self.env['ir.sequence'].next_by_code('consumable.issue') or _('New')
         return super().create(vals_list)
 
     def action_populate_from_job_card(self):
@@ -79,7 +79,7 @@ class JobInventoryIssue(models.Model):
         self.issue_line_ids.unlink()
         allow_service = self.env['ir.config_parameter'].sudo().get_param('job_card_management.allow_service_requisition', 'False') == 'True'
         lines_to_create = []
-        job_lines = self.job_card_id.parts_line_ids.filtered(
+        job_lines = self.job_card_id.consumables_line_ids.filtered(
             lambda l: l.display_type not in ('line_section', 'line_note') and l.product_id
         )
         for line in job_lines:
@@ -107,7 +107,7 @@ class JobInventoryIssue(models.Model):
                 'is_service': is_service,
             })
         if lines_to_create:
-            self.env['job.inventory.issue.line'].create(lines_to_create)
+            self.env['job.consumable.issue.line'].create(lines_to_create)
 
     def action_confirm(self):
         self.ensure_one()
@@ -117,8 +117,8 @@ class JobInventoryIssue(models.Model):
 
     def action_issue(self):
         self.ensure_one()
-        if self.state != 'confirmed':
-            raise UserError(_('Confirm the issue before issuing inventory.'))
+        if self.state not in ('draft', 'confirmed'):
+            raise UserError(_('This issue is already processed or cancelled.'))
         stockable_lines = self.issue_line_ids.filtered(
             lambda l: not l.is_service and l.issued_qty > 0
         )
@@ -148,12 +148,20 @@ class JobInventoryIssue(models.Model):
         picking.action_confirm()
         self.stock_picking_id = picking.id
         self.state = 'issued'
-        self._update_job_card_inventory_state()
+        self._update_job_card_consumable_state()
+        wizard = self.env['consumable.issue.success.wizard'].create({
+            'issue_id': self.id,
+            'job_card_id': self.job_card_id.id,
+            'picking_name': picking.name,
+        })
+        
         return {
+            'name': 'Consumables Issued',
             'type': 'ir.actions.act_window',
-            'res_model': 'stock.picking',
-            'res_id': picking.id,
+            'res_model': 'consumable.issue.success.wizard',
+            'res_id': wizard.id,
             'view_mode': 'form',
+            'target': 'new',
         }
 
     @api.onchange('source_location_id')
@@ -174,17 +182,15 @@ class JobInventoryIssue(models.Model):
             ])
             line.available_qty = sum(quants.mapped('quantity'))
 
-    def _update_job_card_inventory_state(self):
+    def _update_job_card_consumable_state(self):
         job = self.job_card_id
         if not job:
             return
         all_issues = self.search([('job_card_id', '=', job.id), ('state', '=', 'issued')])
         if all_issues and all(i.all_issued for i in all_issues):
-            if job.state in ('pending_inventory', 'approved'):
-                job.state = 'inventory_issued'
-        elif all_issues:
-            if job.state in ('pending_inventory', 'approved'):
-                job.state = 'pending_items'
+            job.all_consumables_issued = True
+        else:
+            job.all_consumables_issued = False
 
     def action_create_requisitions(self):
         self.ensure_one()
@@ -216,7 +222,7 @@ class JobInventoryIssue(models.Model):
     def action_cancel(self):
         self.ensure_one()
         if self.state == 'issued':
-            raise UserError(_('Cannot cancel an already issued inventory issue.'))
+            raise UserError(_('Cannot cancel an already issued consumable.issue.'))
         self.state = 'cancelled'
 
     def action_reset_draft(self):
@@ -235,11 +241,11 @@ class JobInventoryIssue(models.Model):
         }
 
 
-class JobInventoryIssueLine(models.Model):
-    _name = 'job.inventory.issue.line'
-    _description = 'Job Inventory Issue Line'
+class JobConsumableIssueLine(models.Model):
+    _name = 'job.consumable.issue.line'
+    _description = 'Job Consumable Issue Line'
 
-    issue_id = fields.Many2one('job.inventory.issue', string='Issue', ondelete='cascade')
+    issue_id = fields.Many2one('job.consumable.issue', string='Issue', ondelete='cascade')
     job_card_line_id = fields.Many2one('job.card.line', string='Job Card Line')
     product_id = fields.Many2one('product.product', string='Product', required=True)
     uom_id = fields.Many2one('uom.uom', string='Unit of Measure')
@@ -248,6 +254,7 @@ class JobInventoryIssueLine(models.Model):
     issued_qty = fields.Float(string='Issued Qty', default=0.0)
     balance_qty = fields.Float(string='Balance', compute='_compute_balance', store=True)
     shortage_qty = fields.Float(string='Shortage', compute='_compute_shortage', store=True)
+    cost_price = fields.Float(string='Cost Price', related='product_id.standard_price', readonly=True)
     is_service = fields.Boolean(string='Service Item', default=False)
 
     @api.depends('required_qty', 'issued_qty')

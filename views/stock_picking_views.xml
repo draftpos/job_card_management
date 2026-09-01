@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_picking_form_inherit_job_card" model="ir.ui.view">
+        <field name="name">stock.picking.form.inherit.job.card</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <field name="has_remaining_po_qty" invisible="1"/>
+                <button name="action_source_remaining_supplier" string="Source Remaining from New Supplier" type="object" class="btn-secondary" invisible="state != 'done' or picking_type_code != 'incoming' or not has_remaining_po_qty"/>
+            </xpath>
+            <xpath expr="//field[@name='move_ids']//field[@name='product_uom_qty']" position="after">
+                <field name="po_ordered_qty" optional="show"/>
+                <field name="po_remaining_qty" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
