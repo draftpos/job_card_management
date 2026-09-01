@@ -36,11 +36,7 @@
             <xpath expr="//button[@name='%(purchase.action_report_purchase_order)d']" position="attributes">
                 <attribute name="invisible">state not in ('purchase', 'done')</attribute>
             </xpath>
-            
-            <xpath expr="//button[@name='button_approve'][1]" position="attributes">
-                <attribute name="groups">job_card_management.group_can_approve_purchase_order</attribute>
-            </xpath>
-            <xpath expr="//button[@name='button_approve'][2]" position="attributes">
+            <xpath expr="//button[@name='button_approve']" position="attributes">
                 <attribute name="groups">job_card_management.group_can_approve_purchase_order</attribute>
             </xpath>
             
