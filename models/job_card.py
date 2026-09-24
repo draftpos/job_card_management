@@ -507,28 +507,13 @@ class JobCard(models.Model):
             rec.inventory_issue_count = len(rec.inventory_issue_ids.filtered(lambda i: i.state == 'issued'))
 
     @api.depends('parts_line_ids', 'parts_line_ids.quantity', 'parts_line_ids.product_id',
-                 'consumables_line_ids', 'consumables_line_ids.quantity', 'consumables_line_ids.product_id',
-                 'paint_line_ids', 'paint_line_ids.quantity', 'paint_line_ids.product_id',
-                 'sundries_line_ids', 'sundries_line_ids.quantity', 'sundries_line_ids.product_id',
-                 'fittings_line_ids', 'fittings_line_ids.quantity', 'fittings_line_ids.product_id',
-                 'repairs_line_ids', 'repairs_line_ids.quantity', 'repairs_line_ids.product_id',
                  'inventory_issue_ids.state', 'inventory_issue_ids.issue_line_ids.issued_qty')
     def _compute_all_inventory_issued(self):
-        allow_service = self.env['ir.config_parameter'].sudo().get_param('job_card_management.allow_service_requisition', 'False') == 'True'
         for rec in self:
-            all_lines = (
-                rec.parts_line_ids |
-                rec.consumables_line_ids |
-                rec.paint_line_ids |
-                rec.sundries_line_ids |
-                rec.fittings_line_ids |
-                rec.repairs_line_ids
-            ).filtered(
+            # Only Supply Parts (parts_line_ids) are considered for inventory issue tracking
+            all_lines = rec.parts_line_ids.filtered(
                 lambda l: not l.display_type and l.product_id
-            )
-            
-            if not allow_service:
-                all_lines = all_lines.filtered(lambda l: l.product_id.type in ('product', 'consu'))
+            ).filtered(lambda l: l.product_id.type in ('product', 'consu'))
                 
             if not all_lines:
                 rec.all_inventory_issued = True
@@ -565,16 +550,12 @@ class JobCard(models.Model):
 
     def action_issue_inventory(self):
         self.ensure_one()
-        all_lines = (
-            self.parts_line_ids |
-            self.consumables_line_ids |
-            self.paint_line_ids |
-            self.sundries_line_ids |
-            self.fittings_line_ids |
-            self.repairs_line_ids
-        ).filtered(lambda l: l.display_type not in ('line_section', 'line_note') and l.product_id)
+        # Only Supply Parts lines are eligible for inventory issue
+        all_lines = self.parts_line_ids.filtered(
+            lambda l: l.display_type not in ('line_section', 'line_note') and l.product_id
+        )
         if not all_lines:
-            raise UserError(_('There are no product lines to issue for this job card.'))
+            raise UserError(_('There are no Supply Parts lines to issue for this job card.'))
 
         existing = self.inventory_issue_ids.filtered(lambda i: i.state in ('draft', 'confirmed', 'partially_issued'))[:1]
         if existing:

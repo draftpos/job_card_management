@@ -82,26 +82,15 @@ class JobInventoryIssue(models.Model):
         if not self.job_card_id:
             raise UserError(_('Please select a Job Card first.'))
         self.issue_line_ids.unlink()
-        allow_service = self.env['ir.config_parameter'].sudo().get_param('job_card_management.allow_service_requisition', 'False') == 'True'
         lines_to_create = []
         job = self.job_card_id
-        all_job_lines = (
-            job.parts_line_ids |
-            job.consumables_line_ids |
-            job.paint_line_ids |
-            job.sundries_line_ids |
-            job.fittings_line_ids |
-            job.repairs_line_ids
-        )
-        job_lines = all_job_lines.filtered(
+        # Only Supply Parts lines are eligible for inventory issue
+        job_lines = job.parts_line_ids.filtered(
             lambda l: l.display_type not in ('line_section', 'line_note') and l.product_id
         )
         for line in job_lines:
             product = line.product_id
             is_service = product.type == 'service'
-            
-            if not allow_service and is_service:
-                continue
                 
             available_qty = 0.0
             if not is_service:

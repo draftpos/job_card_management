@@ -15,7 +15,7 @@
                             </h2>
                         </div>
                     </div>
-                    <div class="row align-items-center" style="border-bottom: 2px solid #1a1a2e; padding-bottom: 10px; margin-bottom: 10px;">
+                    <div class="row align-items-center" style="margin-bottom: 20px;">
                         <div class="col-6">
                             <img t-if="res_company.logo" t-att-src="image_data_uri(res_company.logo)" style="max-height: 80px;" alt="Logo"/>
                             <h3 t-else="" style="color: #1a1a2e; font-weight: bold;"><span t-field="res_company.name"/></h3>
@@ -34,11 +34,11 @@
                         </div>
                     </div>
                 </div>
-                <div class="page" style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; line-height: 1.7; letter-spacing: 0.4px; color: #333; margin-top: 0px !important; padding-top: 30px !important;">
+                <div class="page" style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; line-height: 1.7; letter-spacing: 0.4px; color: #333; margin-top: 0px !important; padding-top: 60px !important;">
                     
                     <div class="row mt-1 mb-3" style="margin-top: 0px !important; padding-top: 0px !important;">
                         <div class="col-6">
-                            <div t-if="o.partner_id" style="font-size: 14px;">
+                            <div t-if="o.partner_id" style="font-size: 14px; height: 100%; margin-right: 10px;">
                                 <strong>
                                     <t t-if="o.move_type in ('in_invoice', 'in_refund', 'in_receipt')">Vendor Details:</t>
                                     <t t-else="">Customer Details:</t>
@@ -51,7 +51,8 @@
                             </div>
                         </div>
                         <div class="col-6">
-                            <table class="table table-sm table-borderless" style="border: none;">
+                            <div style="height: 100%; margin-left: 10px;">
+                                <table class="table table-sm table-borderless mb-0" style="border: none;">
                                 <tr t-if="o.invoice_origin">
                                     <td style="border: none; padding: 4px 10px; font-weight: bold; font-size: 14px;">Job Card Ref:</td>
                                     <td class="text-end" style="border: none; padding: 4px 10px; font-size: 14px;"><span t-field="o.invoice_origin"/></td>
@@ -64,7 +65,8 @@
                                     <td style="border: none; padding: 4px 10px; font-weight: bold; font-size: 14px;">Due Date:</td>
                                     <td class="text-end" style="border: none; padding: 4px 10px; font-size: 14px;"><span t-field="o.invoice_date_due"/></td>
                                 </tr>
-                            </table>
+                                </table>
+                            </div>
                         </div>
                     </div>
 
@@ -74,9 +76,10 @@
                             <tr style="border-bottom: 3px solid #000 !important;">
                                 <th name="th_description" class="text-start" style="border: none; padding: 16px 14px; font-size: 14px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.6px; text-transform: uppercase;">Description</th>
                                 <th name="th_quantity" class="text-end" style="border: none; padding: 16px 14px; font-size: 14px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.6px; text-transform: uppercase;">Quantity</th>
-                                <th name="th_priceunit" class="text-end" style="border: none; padding: 16px 14px; font-size: 14px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.6px; text-transform: uppercase;">Unit Price</th>
+                                <th name="th_priceincl" class="text-end" style="border: none; padding: 16px 14px; font-size: 14px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.6px; text-transform: uppercase;">Price Incl</th>
+                                <th name="th_discount" class="text-end" style="border: none; padding: 16px 14px; font-size: 14px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.6px; text-transform: uppercase;">Disc %</th>
                                 <th name="th_tax_amount" class="text-end" style="border: none; padding: 16px 14px; font-size: 14px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.6px; text-transform: uppercase;">VAT</th>
-                                <th name="th_subtotal" class="text-end" style="border: none; padding: 16px 14px; font-size: 14px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.6px; text-transform: uppercase;">Amount</th>
+                                <th name="th_subtotal" class="text-end" style="border: none; padding: 16px 14px; font-size: 14px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.6px; text-transform: uppercase;">Total (Incl)</th>
                             </tr>
                         </thead>
                         <tbody class="invoice_tbody">
@@ -89,7 +92,10 @@
                                         <span t-esc="'{:.2f}'.format(line.quantity)"/>
                                     </td>
                                     <td class="text-end" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 14px 14px; font-size: 15px; color: #333; letter-spacing: 0.4px;">
-                                        $ <span t-esc="'{:.2f}'.format(line.price_unit)"/>
+                                        $ <span t-esc="'{:.2f}'.format((line.price_total / line.quantity) if line.quantity else 0.0)"/>
+                                    </td>
+                                    <td class="text-end" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 14px 14px; font-size: 15px; color: #333; letter-spacing: 0.4px;">
+                                        <span t-esc="'{:.2f}'.format(line.discount)"/>%
                                     </td>
                                     <td class="text-end" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 14px 14px; font-size: 15px; color: #333; letter-spacing: 0.4px;">
                                         $ <span t-esc="'{:.2f}'.format(line.price_total - line.price_subtotal)"/>
@@ -103,25 +109,59 @@
                     </table>
 
                     <!-- Totals -->
-                    <div class="row mt-3">
-                        <div class="col-7"/>
-                        <div class="col-5">
-                            <table class="table table-sm table-borderless" style="border: none; border-top: 3px solid #000;">
+                    <!-- Footer Section -->
+                    <div class="row mt-4 mb-2" style="padding: 10px; page-break-inside: avoid;">
+                        <!-- Signatures and Bank Details (Left/Center) -->
+                        <div class="col-6">
+                            <div class="mb-4">
+                                <div style="margin-bottom: 10px;"><strong>Received by</strong> <span style="display:inline-block; width:200px; border-bottom: 1px dashed #333;"></span></div>
+                                <div style="margin-bottom: 10px;"><strong>Date</strong> <span style="display:inline-block; width:254px; border-bottom: 1px dashed #333;"></span></div>
+                                <div style="margin-bottom: 10px;"><strong>Signed</strong> <span style="display:inline-block; width:240px; border-bottom: 1px dashed #333;"></span></div>
+                            </div>
+                            
+                            <div class="row mt-4" style="font-size: 13px;">
+                                <div class="col-6">
+                                    <div t-if="res_company.hao_bank_name"><strong>Bank Name</strong> <span class="float-end" t-field="res_company.hao_bank_name"/></div>
+                                    <div t-if="res_company.hao_bank_branch"><strong>Branch</strong> <span class="float-end" t-field="res_company.hao_bank_branch"/></div>
+                                </div>
+                                <div class="col-6">
+                                    <div t-if="res_company.hao_bank_account_name"><strong>Account Name</strong> <span class="float-end" t-field="res_company.hao_bank_account_name"/></div>
+                                    <div t-if="res_company.hao_bank_account_no"><strong>Account No</strong> <span class="float-end" t-field="res_company.hao_bank_account_no"/></div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Totals (Right) -->
+                        <div class="col-6">
+                            <table class="table table-sm table-borderless" style="border: none;">
                                 <tr class="o_subtotal">
-                                    <td style="border: none; padding: 10px 12px; font-size: 15px; color: #333; letter-spacing: 0.4px;">Total Excl</td>
-                                    <td class="text-end" style="border: none; padding: 10px 12px; font-size: 15px; color: #333;">
+                                    <td style="border: none; padding: 6px 12px; font-size: 15px; color: #333;">Sub Total (Excl) USD</td>
+                                    <td class="text-end" style="border: none; padding: 6px 12px; font-size: 15px; color: #333;">
                                         $ <span t-esc="'{:.2f}'.format(o.amount_untaxed)"/>
                                     </td>
                                 </tr>
                                 <tr class="o_taxes">
-                                    <td style="border: none; padding: 10px 12px; font-size: 15px; color: #333; letter-spacing: 0.4px;">Total VAT</td>
-                                    <td class="text-end" style="border: none; padding: 10px 12px; font-size: 15px; color: #333;">
+                                    <td style="border: none; padding: 6px 12px; font-size: 15px; color: #333;">VAT Amount USD</td>
+                                    <td class="text-end" style="border: none; padding: 6px 12px; font-size: 15px; color: #333;">
                                         $ <span t-esc="'{:.2f}'.format(o.amount_tax)"/>
                                     </td>
                                 </tr>
-                                <tr class="o_total">
-                                    <td style="border: none; padding: 12px 12px; font-size: 17px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.5px;"><strong>Total Incl</strong></td>
-                                    <td class="text-end" style="border: none; padding: 12px 12px; font-size: 17px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.5px;">
+                                <tr>
+                                    <td style="border: none; padding: 6px 12px; font-size: 15px; font-weight: bold; color: #1a1a2e;">Sub Total (Incl) USD</td>
+                                    <td class="text-end" style="border: none; padding: 6px 12px; font-size: 15px; font-weight: bold; color: #1a1a2e;">
+                                        $ <span t-esc="'{:.2f}'.format(o.amount_total)"/>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="border: none; padding: 6px 12px; font-size: 15px; color: #333;">Discount USD</td>
+                                    <td class="text-end" style="border: none; padding: 6px 12px; font-size: 15px; color: #333;">
+                                        <!-- Calculate total discount from lines -->
+                                        $ <t t-set="total_discount" t-value="sum(l.price_unit * l.quantity * (l.discount / 100.0) for l in o.invoice_line_ids)"/>
+                                        <span t-esc="'{:.2f}'.format(total_discount)"/>
+                                    </td>
+                                </tr>
+                                <tr class="o_total" style="border-top: 1px solid #1a1a2e;">
+                                    <td style="border: none; padding: 12px 12px; font-size: 17px; font-weight: 700; color: #1a1a2e;"><strong>Invoice Total (Incl) USD</strong></td>
+                                    <td class="text-end" style="border: none; padding: 12px 12px; font-size: 17px; font-weight: 700; color: #1a1a2e;">
                                         <strong>$ <span t-esc="'{:.2f}'.format(o.amount_total)"/></strong>
                                     </td>
                                 </tr>
