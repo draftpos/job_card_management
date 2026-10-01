@@ -71,16 +71,16 @@
                                         <td style="border: none; padding: 4px 10px; font-weight: bold; font-size: 14px;">Salesperson:</td>
                                         <td class="text-end" style="border: none; padding: 4px 10px; font-size: 14px;"><span t-field="doc.create_uid.name"/></td>
                                     </tr>
-                                    <tr t-if="doc.create_uid.phone or doc.create_uid.partner_id.phone">
-                                        <td style="border: none; padding: 4px 10px; font-weight: bold; font-size: 14px;">Phone:</td>
-                                        <td class="text-end" style="border: none; padding: 4px 10px; font-size: 14px;">
-                                            <span t-esc="doc.create_uid.phone or doc.create_uid.partner_id.phone"/>
-                                        </td>
-                                    </tr>
                                     <tr t-if="doc.create_uid.email or doc.create_uid.partner_id.email">
                                         <td style="border: none; padding: 4px 10px; font-weight: bold; font-size: 14px;">Email:</td>
                                         <td class="text-end" style="border: none; padding: 4px 10px; font-size: 14px;">
                                             <span t-esc="doc.create_uid.email or doc.create_uid.partner_id.email"/>
+                                        </td>
+                                    </tr>
+                                    <tr t-if="doc.create_uid.phone or doc.create_uid.partner_id.phone">
+                                        <td style="border: none; padding: 4px 10px; font-weight: bold; font-size: 14px;">Phone:</td>
+                                        <td class="text-end" style="border: none; padding: 4px 10px; font-size: 14px;">
+                                            <span t-esc="doc.create_uid.phone or doc.create_uid.partner_id.phone"/>
                                         </td>
                                     </tr>
                                     <tr t-if="res_company.custom_vat">

@@ -65,6 +65,22 @@
                                     <td style="border: none; padding: 4px 10px; font-weight: bold; font-size: 14px;">Due Date:</td>
                                     <td class="text-end" style="border: none; padding: 4px 10px; font-size: 14px;"><span t-field="o.invoice_date_due"/></td>
                                 </tr>
+                                <tr t-if="o.create_uid">
+                                    <td style="border: none; padding: 4px 10px; font-weight: bold; font-size: 14px;">Salesperson:</td>
+                                    <td class="text-end" style="border: none; padding: 4px 10px; font-size: 14px;"><span t-field="o.create_uid.name"/></td>
+                                </tr>
+                                <tr t-if="o.create_uid.email or o.create_uid.partner_id.email">
+                                    <td style="border: none; padding: 4px 10px; font-weight: bold; font-size: 14px;">Email:</td>
+                                    <td class="text-end" style="border: none; padding: 4px 10px; font-size: 14px;">
+                                        <span t-esc="o.create_uid.email or o.create_uid.partner_id.email"/>
+                                    </td>
+                                </tr>
+                                <tr t-if="o.create_uid.phone or o.create_uid.partner_id.phone">
+                                    <td style="border: none; padding: 4px 10px; font-weight: bold; font-size: 14px;">Phone:</td>
+                                    <td class="text-end" style="border: none; padding: 4px 10px; font-size: 14px;">
+                                        <span t-esc="o.create_uid.phone or o.create_uid.partner_id.phone"/>
+                                    </td>
+                                </tr>
                                 </table>
                             </div>
                         </div>
