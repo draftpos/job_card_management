@@ -152,37 +152,61 @@ class JobCard(models.Model):
             self.access_token = str(uuid.uuid4())
 
     @api.model
+    def _get_or_create_service_product(self, name, default_code=None):
+        Product = self.env['product.product']
+        domain = ['|', ('name', '=ilike', name), ('name', 'ilike', name)]
+        if default_code:
+            domain = ['|', ('default_code', '=ilike', default_code)] + domain
+        prod = Product.search(domain, limit=1)
+        if not prod:
+            prod = Product.with_context(active_test=False).search(domain, limit=1)
+            if prod and not prod.active:
+                prod.active = True
+        if not prod:
+            tmpl_domain = ['|', ('name', '=ilike', name), ('name', 'ilike', name)]
+            if default_code:
+                tmpl_domain = ['|', ('default_code', '=ilike', default_code)] + tmpl_domain
+            tmpl = self.env['product.template'].with_context(active_test=False).search(tmpl_domain, limit=1)
+            if tmpl:
+                if not tmpl.active:
+                    tmpl.active = True
+                prod = tmpl.product_variant_id or Product.search([('product_tmpl_id', '=', tmpl.id)], limit=1)
+        if not prod:
+            vals = {'name': name, 'type': 'service'}
+            if default_code:
+                vals['default_code'] = default_code
+            prod = Product.create(vals)
+        return prod
+
+    @api.model
     def default_get(self, fields_list):
         res = super().default_get(fields_list)
         
         if self.env.context.get('skip_default_lines'):
             return res
             
-        cons_prod = self.env['product.product'].search([('name', '=', 'Consumables')], limit=1)
-        if not cons_prod:
-            cons_prod = self.env['product.product'].create({'name': 'Consumables', 'type': 'service'})
-            
-        sundries_prod = self.env['product.product'].search([('name', '=', 'Sundries')], limit=1)
-        if not sundries_prod:
-            sundries_prod = self.env['product.product'].create({'name': 'Sundries', 'type': 'service'})
+        cons_prod = self._get_or_create_service_product('Consumables', default_code='CONS')
+        sundries_prod = self._get_or_create_service_product('Sundries', default_code='SUND')
 
         cons_lines = res.get('consumables_line_ids', [])
-        cons_lines.append((0, 0, {
-            'line_category': 'consumables',
-            'product_id': cons_prod.id,
-            'name': cons_prod.name,
-            'quantity': 1.0,
-        }))
-        res['consumables_line_ids'] = cons_lines
+        if not cons_lines and cons_prod:
+            cons_lines.append((0, 0, {
+                'line_category': 'consumables',
+                'product_id': cons_prod.id,
+                'name': cons_prod.name,
+                'quantity': 1.0,
+            }))
+            res['consumables_line_ids'] = cons_lines
 
         sundries_lines = res.get('sundries_line_ids', [])
-        sundries_lines.append((0, 0, {
-            'line_category': 'sundries',
-            'product_id': sundries_prod.id,
-            'name': sundries_prod.name,
-            'quantity': 1.0,
-        }))
-        res['sundries_line_ids'] = sundries_lines
+        if not sundries_lines and sundries_prod:
+            sundries_lines.append((0, 0, {
+                'line_category': 'sundries',
+                'product_id': sundries_prod.id,
+                'name': sundries_prod.name,
+                'quantity': 1.0,
+            }))
+            res['sundries_line_ids'] = sundries_lines
         
         return res
 
@@ -267,47 +291,32 @@ class JobCard(models.Model):
                 
             if not is_from_estimate:
                 # Auto-populate Consumables product line
-                consumables_product = self.env['product.product'].search(
-                    [('name', 'ilike', 'Consumables')], limit=1
-                )
-                if not consumables_product:
-                    consumables_product = self.env['product.product'].create({
-                        'name': 'Consumables',
-                        'type': 'service'
-                    })
-                    
-                if consumables_product:
-                    self.env['job.card.line'].create({
-                        'job_card_id': rec.id,
-                        'consumables_job_card_id': rec.id,
-                        'line_category': 'consumables',
-                        'product_id': consumables_product.id,
-                        'name': consumables_product.name,
-                        'quantity': 1.0,
-                        'unit_price': 0.0,
-                    })
+                if not rec.consumables_line_ids:
+                    consumables_product = self._get_or_create_service_product('Consumables', default_code='CONS')
+                    if consumables_product:
+                        self.env['job.card.line'].create({
+                            'job_card_id': rec.id,
+                            'consumables_job_card_id': rec.id,
+                            'line_category': 'consumables',
+                            'product_id': consumables_product.id,
+                            'name': consumables_product.name,
+                            'quantity': 1.0,
+                            'unit_price': 0.0,
+                        })
                     
                 # Auto-populate Sundries product line
-                sundries_product = self.env['product.product'].search(
-                    [('name', 'ilike', 'Sundries')], limit=1
-                )
-                if not sundries_product:
-                    sundries_product = self.env['product.product'].create({
-                        'name': 'Sundries',
-                        'type': 'service',
-                        'default_code': 'SUND',
-                    })
-                    
-                if sundries_product:
-                    self.env['job.card.line'].create({
-                        'job_card_id': rec.id,
-                        'sundries_job_card_id': rec.id,
-                        'line_category': 'sundries',
-                        'product_id': sundries_product.id,
-                        'name': sundries_product.name,
-                        'quantity': 1.0,
-                        'unit_price': 0.0,
-                    })
+                if not rec.sundries_line_ids:
+                    sundries_product = self._get_or_create_service_product('Sundries', default_code='SUND')
+                    if sundries_product:
+                        self.env['job.card.line'].create({
+                            'job_card_id': rec.id,
+                            'sundries_job_card_id': rec.id,
+                            'line_category': 'sundries',
+                            'product_id': sundries_product.id,
+                            'name': sundries_product.name,
+                            'quantity': 1.0,
+                            'unit_price': 0.0,
+                        })
 
         job_card._organize_lines()
         return job_card
@@ -896,15 +905,8 @@ class JobCard(models.Model):
                 enable_betterment = self.env['ir.config_parameter'].sudo().get_param('job_card_management.enable_betterment', 'False') == 'True'
                 betterment_policy = self.env['ir.config_parameter'].sudo().get_param('job_card_management.betterment_billing_policy', 'percentage')
 
-                # Helper to get/create product
-                def get_service_product(name):
-                    product = self.env['product.product'].search([('name', '=', name)], limit=1)
-                    if not product:
-                        product = self.env['product.product'].create({'name': name, 'type': 'service'})
-                    return product
-
-                excess_product = get_service_product('Excess')
-                betterment_product = get_service_product('Betterment')
+                excess_product = self._get_or_create_service_product('Excess')
+                betterment_product = self._get_or_create_service_product('Betterment')
 
                 # Total Job Card Amount for percentage calculations
                 total_amount = rec.amount_total
