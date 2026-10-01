@@ -53,27 +53,52 @@ class Customer(models.Model):
     def create(self, vals_list):
         """Auto-create res.partner when customer is created"""
         for vals in vals_list:
-            partner_vals = {
-                'name': vals.get('name'),
-                'email': vals.get('email'),
-                'phone': vals.get('phone'),
-                'street': vals.get('street'),
-                'street2': vals.get('street2'),
-                'city': vals.get('city'),
-                'state_id': False,  # You can add state lookup if needed
-                'zip': vals.get('zip_code'),
-                'country_id': False,  # You can add country lookup if needed
-                'vat': vals.get('vat_number'),
-                'customer_rank': 1,
-            }
-            if self.env.context.get('default_is_vendor') or self.env.context.get('default_is_supplier'):
-                partner_vals['is_supplier'] = True
-                partner_vals['supplier_rank'] = 1
-                partner_vals['is_customer'] = False
-                partner_vals['customer_rank'] = 0
+            if vals.get('partner_id'):
+                continue
 
-            partner = self.env['res.partner'].create(partner_vals)
-            vals['partner_id'] = partner.id
+            partner = False
+            # Check for duplicates using havano_all_in_one logic if available to prevent ValidationError
+            if hasattr(self.env['res.partner'], '_find_duplicate_candidate'):
+                check_vals = {
+                    'name': vals.get('name'),
+                    'email': vals.get('email'),
+                    'phone': vals.get('phone'),
+                    'street': vals.get('street'),
+                    'city': vals.get('city'),
+                }
+                duplicate, reason = self.env['res.partner']._find_duplicate_candidate(check_vals)
+                if duplicate:
+                    partner = duplicate
+            
+            # Fallback simple search by name
+            if not partner and vals.get('name'):
+                name = vals.get('name').strip()
+                partner = self.env['res.partner'].search([('name', '=ilike', name)], limit=1)
+                
+            if partner:
+                vals['partner_id'] = partner.id
+            else:
+                partner_vals = {
+                    'name': vals.get('name'),
+                    'email': vals.get('email'),
+                    'phone': vals.get('phone'),
+                    'street': vals.get('street'),
+                    'street2': vals.get('street2'),
+                    'city': vals.get('city'),
+                    'state_id': False,
+                    'zip': vals.get('zip_code'),
+                    'country_id': False,
+                    'vat': vals.get('vat_number'),
+                    'customer_rank': 1,
+                }
+                if self.env.context.get('default_is_vendor') or self.env.context.get('default_is_supplier'):
+                    partner_vals['is_supplier'] = True
+                    partner_vals['supplier_rank'] = 1
+                    partner_vals['is_customer'] = False
+                    partner_vals['customer_rank'] = 0
+
+                partner = self.env['res.partner'].create(partner_vals)
+                vals['partner_id'] = partner.id
         return super(Customer, self).create(vals_list)
 
     def write(self, vals):
@@ -91,5 +116,5 @@ class Customer(models.Model):
                     'zip': vals.get('zip_code', record.zip_code),
                     'vat': vals.get('vat_number', record.vat_number),
                 }
-                record.partner_id.write(partner_vals)
+                record.partner_id.with_context(skip_duplicate_check=True).write(partner_vals)
         return result
