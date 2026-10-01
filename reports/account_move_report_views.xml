@@ -186,11 +186,55 @@
                     </div>
                     
                     <!-- Terms and Conditions -->
-                    <div class="row mt-4" t-if="o.narration">
+                    <div class="row mt-4" t-if="o.narration" style="page-break-inside: auto;">
                         <div class="col-12">
                             <h5 style="color: #1a1a2e; font-weight: bold; border-bottom: 2px solid #1a1a2e; padding-bottom: 5px;">Terms and Conditions</h5>
                             <div style="font-size: 13px; color: #555; padding-top: 10px; line-height: 1.1;">
                                 <span t-out="o.narration"/>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BANK DETAILS -->
+                    <div t-if="o.company_id.hao_multi_bank and o.company_id.hao_bank_detail_ids.filtered(lambda b: b.print_on_invoice)" class="row mt-4" style="page-break-inside: avoid;">
+                        <div class="col-12" style="color: #444;">
+                            <h5 style="color: #1a1a2e; font-weight: bold; border-bottom: 2px solid #1a1a2e; padding-bottom: 5px;">Bank Details</h5>
+                            <table class="table table-sm table-borderless mt-2" style="font-size: 13px; color: #555; margin-bottom: 0;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid #e2e8f0; font-weight: bold; color: #111827;">
+                                        <th style="padding: 4px 6px;">Account Name</th>
+                                        <th style="padding: 4px 6px;">Bank</th>
+                                        <th style="padding: 4px 6px;">Account No</th>
+                                        <th style="padding: 4px 6px;">Branch</th>
+                                        <th style="padding: 4px 6px;">Branch Code</th>
+                                        <th style="padding: 4px 6px;">Swift Code</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="o.company_id.hao_bank_detail_ids.filtered(lambda b: b.print_on_invoice)" t-as="bank">
+                                        <tr>
+                                            <td style="padding: 4px 6px;"><span t-field="bank.account_name"/></td>
+                                            <td style="padding: 4px 6px;"><span t-field="bank.bank_name"/></td>
+                                            <td style="padding: 4px 6px;"><span t-field="bank.account_no"/></td>
+                                            <td style="padding: 4px 6px;"><span t-field="bank.branch"/></td>
+                                            <td style="padding: 4px 6px;"><span t-field="bank.branch_code"/></td>
+                                            <td style="padding: 4px 6px;"><span t-field="bank.swift_code"/></td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div t-if="not o.company_id.hao_multi_bank and o.company_id.hao_bank_name" class="row mt-4" style="page-break-inside: avoid;">
+                        <div class="col-12" style="color: #444;">
+                            <h5 style="color: #1a1a2e; font-weight: bold; border-bottom: 2px solid #1a1a2e; padding-bottom: 5px;">Bank Details</h5>
+                            <div style="font-size: 13px; color: #555; padding: 10px 0;">
+                                <strong style="color: #111827;">Bank:</strong> <span t-field="o.company_id.hao_bank_name"/> | 
+                                <strong style="color: #111827;">Account Name:</strong> <span t-field="o.company_id.hao_bank_account_name"/> | 
+                                <strong style="color: #111827;">Account No:</strong> <span t-field="o.company_id.hao_bank_account_no"/>
+                                <t t-if="o.company_id.hao_bank_branch"> | <strong style="color: #111827;">Branch:</strong> <span t-field="o.company_id.hao_bank_branch"/></t>
+                                <t t-if="o.company_id.hao_bank_branch_code"> | <strong style="color: #111827;">Branch Code:</strong> <span t-field="o.company_id.hao_bank_branch_code"/></t>
+                                <t t-if="o.company_id.hao_bank_swift_code"> | <strong style="color: #111827;">Swift Code:</strong> <span t-field="o.company_id.hao_bank_swift_code"/></t>
                             </div>
                         </div>
                     </div>

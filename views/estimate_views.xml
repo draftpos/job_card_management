@@ -307,6 +307,50 @@
                             </div>
                         </div>
 
+                        <!-- BANK DETAILS -->
+                        <div t-if="doc.company_id.hao_multi_bank and doc.company_id.hao_bank_detail_ids.filtered(lambda b: b.print_on_invoice)" class="row mt-3" style="page-break-inside: avoid;">
+                            <div class="col-12" style="color: #444;">
+                                <strong style="font-size: 11.5px; color: #1a1a2e; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px;">Bank Details:</strong>
+                                <table class="table table-sm table-borderless" style="font-size: 10px; color: #374151; margin-bottom: 0;">
+                                    <thead>
+                                        <tr style="border-bottom: 1px solid #e2e8f0; font-weight: bold; color: #111827;">
+                                            <th style="padding: 2px 4px;">Account Name</th>
+                                            <th style="padding: 2px 4px;">Bank</th>
+                                            <th style="padding: 2px 4px;">Account No</th>
+                                            <th style="padding: 2px 4px;">Branch</th>
+                                            <th style="padding: 2px 4px;">Branch Code</th>
+                                            <th style="padding: 2px 4px;">Swift Code</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <t t-foreach="doc.company_id.hao_bank_detail_ids.filtered(lambda b: b.print_on_invoice)" t-as="bank">
+                                            <tr>
+                                                <td style="padding: 2px 4px;"><span t-field="bank.account_name"/></td>
+                                                <td style="padding: 2px 4px;"><span t-field="bank.bank_name"/></td>
+                                                <td style="padding: 2px 4px;"><span t-field="bank.account_no"/></td>
+                                                <td style="padding: 2px 4px;"><span t-field="bank.branch"/></td>
+                                                <td style="padding: 2px 4px;"><span t-field="bank.branch_code"/></td>
+                                                <td style="padding: 2px 4px;"><span t-field="bank.swift_code"/></td>
+                                            </tr>
+                                        </t>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div t-if="not doc.company_id.hao_multi_bank and doc.company_id.hao_bank_name" class="row mt-3" style="page-break-inside: avoid;">
+                            <div class="col-12" style="color: #444;">
+                                <strong style="font-size: 11.5px; color: #1a1a2e; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px;">Bank Details:</strong>
+                                <div style="font-size: 10px; color: #374151; padding: 2px 4px;">
+                                    <strong style="color: #111827;">Bank:</strong> <span t-field="doc.company_id.hao_bank_name"/> | 
+                                    <strong style="color: #111827;">Account Name:</strong> <span t-field="doc.company_id.hao_bank_account_name"/> | 
+                                    <strong style="color: #111827;">Account No:</strong> <span t-field="doc.company_id.hao_bank_account_no"/>
+                                    <t t-if="doc.company_id.hao_bank_branch"> | <strong style="color: #111827;">Branch:</strong> <span t-field="doc.company_id.hao_bank_branch"/></t>
+                                    <t t-if="doc.company_id.hao_bank_branch_code"> | <strong style="color: #111827;">Branch Code:</strong> <span t-field="doc.company_id.hao_bank_branch_code"/></t>
+                                    <t t-if="doc.company_id.hao_bank_swift_code"> | <strong style="color: #111827;">Swift Code:</strong> <span t-field="doc.company_id.hao_bank_swift_code"/></t>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
                 </t>
             </t>
