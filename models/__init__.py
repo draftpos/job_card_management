@@ -17,3 +17,4 @@ from . import stock_picking
 from . import consumable_issue
 from . import consumable_issue_success_wizard
 from . import procurement_reject_wizard
+from . import product

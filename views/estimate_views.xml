@@ -52,6 +52,23 @@
                                         <t t-if="print_tin and doc.customer_id.vat_number">TIN/VAT: <span t-field="doc.customer_id.vat_number"/></t>
                                     </t>
                                 </div>
+                                <div t-if="doc.vehicle_id or doc.vehicle_reg_number" style="font-size: 14px; margin-top: 15px;">
+                                    <strong>Vehicle Details:</strong><br/>
+                                    <table class="table table-sm table-borderless" style="border: none; margin-bottom: 0; padding: 0; width: auto;">
+                                        <tr t-if="doc.vehicle_make">
+                                            <td style="border: none; padding: 2px 20px 2px 0; font-weight: bold; font-size: 14px;">Make:</td>
+                                            <td style="border: none; padding: 2px 0; font-size: 14px;"><span t-field="doc.vehicle_make"/></td>
+                                        </tr>
+                                        <tr t-if="doc.vehicle_model">
+                                            <td style="border: none; padding: 2px 20px 2px 0; font-weight: bold; font-size: 14px;">Model:</td>
+                                            <td style="border: none; padding: 2px 0; font-size: 14px;"><span t-field="doc.vehicle_model"/></td>
+                                        </tr>
+                                        <tr t-if="doc.vehicle_reg_number">
+                                            <td style="border: none; padding: 2px 20px 2px 0; font-weight: bold; font-size: 14px;">REG NO:</td>
+                                            <td style="border: none; padding: 2px 0; font-size: 14px;"><span t-field="doc.vehicle_reg_number"/></td>
+                                        </tr>
+                                    </table>
+                                </div>
                             </div>
                             <div class="col-6">
                                 <table class="table table-sm table-borderless" style="border: none;">
@@ -156,10 +173,58 @@
                                     </t>
                                 </t>
 
+                                <!-- 1.5 Repair Works (Itemized) -->
+                                <t t-set="repairs_lines" t-value="doc.estimate_lines.filtered(lambda l: l.line_category == 'repairs')"/>
+                                <t t-if="repairs_lines">
+                                    <tr style="height: 16px;"><td colspan="5" style="border: none; padding: 0;"/></tr>
+                                    <tr class="o_line_section">
+                                        <td colspan="5" style="border: none; background-color: #f2f3f5; padding: 8px 10px; font-weight: 700; font-size: 14px; color: #1a1a2e; letter-spacing: 0.4px;">
+                                            Repair Works
+                                        </td>
+                                    </tr>
+                                    <t t-foreach="repairs_lines" t-as="line">
+                                        <t t-if="line.display_type == 'line_section'">
+                                            <t t-if="(line.name or '').strip().lower() not in ['repair works', 'repairs']">
+                                                <tr style="height: 14px;"><td colspan="5" style="border: none; padding: 0;"/></tr>
+                                                <tr class="o_line_section">
+                                                    <td colspan="5" style="border: none; background-color: #f8f9fa; padding: 7px 10px; font-weight: 700; font-size: 13px; color: #1a1a2e; letter-spacing: 0.4px; border-left: 3px solid #1a1a2e;">
+                                                        <span t-field="line.name"/>
+                                                    </td>
+                                                </tr>
+                                            </t>
+                                        </t>
+                                        <t t-elif="line.display_type == 'line_note'">
+                                            <tr>
+                                                <td colspan="5" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 4px 10px; font-size: 12px; font-style: italic; color: #666;">
+                                                    <span t-field="line.name"/>
+                                                </td>
+                                            </tr>
+                                        </t>
+                                        <t t-else="">
+                                            <tr>
+                                                <td style="border: none; border-bottom: 1px solid #e0e0e0; padding: 6px 10px; font-size: 13px; color: #333; letter-spacing: 0.3px;">
+                                                    <span t-field="line.product_id.name"/>
+                                                </td>
+                                                <td class="text-end" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 6px 10px; font-size: 13px; color: #333; letter-spacing: 0.3px;">
+                                                    <span t-esc="'{:.2f}'.format(line.quantity)"/>
+                                                </td>
+                                                <td class="text-end" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 6px 10px; font-size: 13px; color: #333; letter-spacing: 0.3px;">
+                                                    $ <span t-esc="'{:.2f}'.format(line.unit_price)"/>
+                                                </td>
+                                                <td class="text-end" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 6px 10px; font-size: 13px; color: #333; letter-spacing: 0.3px;">
+                                                    $ <span t-esc="'{:.2f}'.format(line.tax_amount)"/>
+                                                </td>
+                                                <td class="text-end o_price_total" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 6px 10px; font-size: 13px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.3px;">
+                                                    $ <span t-esc="'{:.2f}'.format(line.price_total)"/>
+                                                </td>
+                                            </tr>
+                                        </t>
+                                    </t>
+                                </t>
+
                                 <!-- 2. Other Categories as Single Consolidated Rows -->
-                                <tr t-if="parts_lines" style="height: 14px;"><td colspan="5" style="border: none; padding: 0;"/></tr>
+                                <tr t-if="parts_lines or repairs_lines" style="height: 14px;"><td colspan="5" style="border: none; padding: 0;"/></tr>
                                 <t t-set="category_defs" t-value="[
-                                    ('repairs', 'Repair Works'),
                                     ('paint', 'Paint Job'),
                                     ('fittings', 'Fittings'),
                                     ('sundries', 'Sundries'),
@@ -310,27 +375,25 @@
                         <!-- BANK DETAILS -->
                         <div t-if="res_company.hao_multi_bank and res_company.hao_bank_detail_ids.filtered(lambda b: b.print_on_invoice)" class="row mt-3" style="page-break-inside: avoid;">
                             <div class="col-12" style="color: #444;">
-                                <strong style="font-size: 11.5px; color: #1a1a2e; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px;">Bank Details:</strong>
-                                <table class="table table-sm table-borderless" style="font-size: 10px; color: #374151; margin-bottom: 0;">
-                                    <thead>
-                                        <tr style="border-bottom: 1px solid #e2e8f0; font-weight: bold; color: #111827;">
-                                            <th style="padding: 2px 4px;">Account Name</th>
-                                            <th style="padding: 2px 4px;">Bank</th>
-                                            <th style="padding: 2px 4px;">Account No</th>
-                                            <th style="padding: 2px 4px;">Branch</th>
-                                            <th style="padding: 2px 4px;">Branch Code</th>
-                                            <th style="padding: 2px 4px;">Swift Code</th>
-                                        </tr>
-                                    </thead>
+                                <strong style="font-size: 14px; color: #1a1a2e; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px;">Bank Details:</strong>
+                                <t t-set="bank_details" t-value="res_company.hao_bank_detail_ids.filtered(lambda b: b.print_on_invoice)"/>
+                                <table style="width: 100%; border-collapse: separate; border-spacing: 10px 10px;">
                                     <tbody>
-                                        <t t-foreach="res_company.hao_bank_detail_ids.filtered(lambda b: b.print_on_invoice)" t-as="bank">
+                                        <t t-foreach="range(0, len(bank_details), 2)" t-as="i">
                                             <tr>
-                                                <td style="padding: 2px 4px;"><span t-field="bank.account_name"/></td>
-                                                <td style="padding: 2px 4px;"><span t-field="bank.bank_name"/></td>
-                                                <td style="padding: 2px 4px;"><span t-field="bank.account_no"/></td>
-                                                <td style="padding: 2px 4px;"><span t-field="bank.branch"/></td>
-                                                <td style="padding: 2px 4px;"><span t-field="bank.branch_code"/></td>
-                                                <td style="padding: 2px 4px;"><span t-field="bank.swift_code"/></td>
+                                                <t t-foreach="[0, 1]" t-as="j">
+                                                    <td style="width: 50%; vertical-align: top; padding: 10px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 14px; color: #374151;">
+                                                        <t t-if="i+j &lt; len(bank_details)">
+                                                            <t t-set="bank" t-value="bank_details[i+j]"/>
+                                                            <strong style="color: #111827;">Account Name:</strong> <span t-field="bank.account_name"/><br/>
+                                                            <strong style="color: #111827;">Bank:</strong> <span t-field="bank.bank_name"/><br/>
+                                                            <strong style="color: #111827;">Account No:</strong> <span t-field="bank.account_no"/>
+                                                            <t t-if="bank.branch"><br/><strong style="color: #111827;">Branch:</strong> <span t-field="bank.branch"/></t>
+                                                            <t t-if="bank.branch_code"><br/><strong style="color: #111827;">Branch Code:</strong> <span t-field="bank.branch_code"/></t>
+                                                            <t t-if="bank.swift_code"><br/><strong style="color: #111827;">Swift Code:</strong> <span t-field="bank.swift_code"/></t>
+                                                        </t>
+                                                    </td>
+                                                </t>
                                             </tr>
                                         </t>
                                     </tbody>
