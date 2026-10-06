@@ -1,6 +1,6 @@
 {
     'name': 'Job Card Management',
-    'version': '19.0.2.0.2',
+    'version': '19.0.2.0.3',
     'category': 'Services',
     'author': 'Odoo Development Team',
     'license': 'LGPL-3',

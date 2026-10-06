@@ -26,6 +26,34 @@ class ResConfigSettings(models.TransientModel):
         config_parameter='job_card_management.allow_service_requisition',
         default=False
     )
+
+    auto_uppercase_product_name = fields.Boolean(
+        string='Auto Uppercase Product Names',
+        config_parameter='job_card_management.auto_uppercase_product_name',
+        default=False,
+        help="If enabled, product names will automatically be formatted and saved in ALL CAPS across the entire system."
+    )
+
+    def action_convert_existing_products_uppercase(self):
+        self.ensure_one()
+        products = self.env['product.template'].search([])
+        count = 0
+        for prod in products:
+            if prod.name and isinstance(prod.name, str):
+                upper_name = prod.name.upper()
+                if prod.name != upper_name:
+                    prod.write({'name': upper_name})
+                    count += 1
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': 'Product Names Converted',
+                'message': f'{count} existing products have been converted to ALL CAPS.',
+                'type': 'success',
+                'sticky': False,
+            }
+        }
     
     # Quotation Print Settings
     print_customer_full_details = fields.Boolean(

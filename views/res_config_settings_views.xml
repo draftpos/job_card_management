@@ -22,6 +22,18 @@
                             <field name="purchase_default_terms" class="w-100"/>
                         </setting>
                     </block>
+                    <block title="Product Settings" name="job_card_product_setting_container">
+                        <setting string="Auto Uppercase Product Names" help="Automatically save all product names in ALL CAPS when created or updated anywhere across the system.">
+                            <field name="auto_uppercase_product_name"/>
+                            <div class="mt-2" invisible="not auto_uppercase_product_name">
+                                <button name="action_convert_existing_products_uppercase"
+                                        type="object"
+                                        string="Convert All Existing Products to ALL CAPS"
+                                        class="btn btn-sm btn-outline-primary"
+                                        confirm="Are you sure you want to convert all existing product names to ALL CAPS?"/>
+                            </div>
+                        </setting>
+                    </block>
                     <block title="Requisition Settings" name="job_card_requisition_setting_container">
                         <setting string="Service Requisitions" help="Allow Consumables and Sundries to be requisitioned.">
                             <field name="allow_service_requisition"/>
