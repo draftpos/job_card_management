@@ -1,9 +1,12 @@
 {
     'name': 'Job Card Management',
-    'version': '19.0.2.0.3',
+    'version': '19.0.2.0.4',
     'category': 'Services',
-    'author': 'Odoo Development Team',
+    'summary': 'Workshop and automotive job cards, vehicle VIN catalog, technician tracking, inventory issues & profitability dashboard',
+    'author': 'DraftPOS / Havano Solutions',
+    'website': 'https://draftpos.com',
     'license': 'LGPL-3',
+    'images': ['static/description/icon.png'],
     'depends': ['sale', 'sale_management', 'purchase', 'purchase_requisition', 'stock', 'account', 'hr', 'hr_expense', 'mail'],
     'data': [
         'static/security/job_card_groups.xml',
