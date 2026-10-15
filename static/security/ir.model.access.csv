@@ -35,3 +35,5 @@ access_job_consumable_issue,job.consumable.issue,model_job_consumable_issue,base
 access_job_consumable_issue_line,job.consumable.issue.line,model_job_consumable_issue_line,base.group_user,1,1,1,1
 access_consumable_issue_success_wizard,consumable.issue.success.wizard,model_consumable_issue_success_wizard,base.group_user,1,1,1,1
 access_procurement_reject_wizard,procurement.reject.wizard,model_procurement_reject_wizard,base.group_user,1,1,1,1
+access_estimate_adjust,Estimate Adjust,model_estimate,group_can_adjust_estimate,1,1,1,1
+access_estimate_line_adjust,Estimate Line Adjust,model_estimate_line,group_can_adjust_estimate,1,1,1,1

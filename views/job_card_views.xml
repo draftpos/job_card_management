@@ -80,18 +80,17 @@
                             <field name="authorization_letter_filename" invisible="1"/>
                             <field name="authorization_letter" filename="authorization_letter_filename" invisible="not second_customer_id or authorization_type != 'file'"/>
                             <field name="authorization_link" widget="url" invisible="not second_customer_id or authorization_type != 'link'"/>
-                            <!-- Excess fields: show % only when billing = percentage, show AMT only when billing = fixed -->
-                            <field name="excess_percentage" readonly="state in ('completed', 'delivered')"
-                                   invisible="billing_policy_setting == 'fixed'"/>
-                            <field name="excess_amount" readonly="state in ('completed', 'delivered') or billing_policy_setting == 'percentage'"/>
+                            <!-- Financial split fields -->
+                            <field name="excess_percentage" readonly="state in ('completed', 'delivered')"/>
+                            <field name="excess_amount" readonly="state in ('completed', 'delivered')"/>
                             <!-- Betterment fields: only visible when enabled -->
                             <field name="betterment_percentage" readonly="state in ('completed', 'delivered')"
-                                   invisible="not enable_betterment_setting or betterment_billing_policy_setting == 'fixed'"/>
-                            <field name="betterment_amount" readonly="state in ('completed', 'delivered') or betterment_billing_policy_setting == 'percentage'"
                                    invisible="not enable_betterment_setting"/>
-                            <!-- Insurance fields: always readonly, computed -->
-                            <field name="insurance_percentage" readonly="1"/>
-                            <field name="insurance_amount" readonly="1"/>
+                            <field name="betterment_amount" readonly="state in ('completed', 'delivered')"
+                                   invisible="not enable_betterment_setting"/>
+                            <!-- Insurance fields: editable amount, computed percentage -->
+                            <field name="insurance_amount" readonly="state in ('completed', 'delivered')" invisible="not second_customer_id"/>
+                            <field name="insurance_percentage" readonly="1" invisible="not second_customer_id"/>
                             <field name="analytic_account_id" readonly="state in ('completed', 'delivered')"/>
                             <field name="customer_sale_order_id" readonly="1" string="Customer Order"
                                    invisible="not customer_sale_order_id"/>

@@ -727,25 +727,35 @@ class JobCard(models.Model):
                     sale_order.action_cancel()
             rec.state = 'draft'
 
-    @api.depends('excess_amount', 'betterment_amount', 'amount_total', 'second_customer_id')
+    @api.depends('insurance_amount', 'amount_total', 'second_customer_id')
     def _compute_insurance_pct(self):
         for rec in self:
-            amount = rec.amount_total or 0.0
             if not rec.second_customer_id:
-                rec.insurance_amount = 0.0
                 rec.insurance_percentage = 0.0
+            elif rec.amount_total > 0 and rec.insurance_amount:
+                rec.insurance_percentage = (rec.insurance_amount / rec.amount_total) * 100.0
             else:
-                rec.insurance_amount = amount - (rec.excess_amount + rec.betterment_amount)
-                if amount > 0:
-                    rec.insurance_percentage = (rec.insurance_amount / amount) * 100.0
-                else:
-                    rec.insurance_percentage = 0.0
+                rec.insurance_percentage = 0.0
 
-    @api.onchange('second_customer_id')
-    def _onchange_insurance_company_defaults(self):
-        if not self.second_customer_id:
-            self.excess_amount = 0.0
-            self.betterment_amount = 0.0
+    @api.onchange('excess_percentage')
+    def _onchange_excess_percentage(self):
+        if self.excess_percentage and self.amount_total and not self.excess_amount:
+            self.excess_amount = (self.excess_percentage / 100.0) * self.amount_total
+
+    @api.onchange('betterment_percentage')
+    def _onchange_betterment_percentage(self):
+        if self.betterment_percentage and self.amount_total and not self.betterment_amount:
+            self.betterment_amount = (self.betterment_percentage / 100.0) * self.amount_total
+
+    @api.onchange('excess_amount', 'betterment_amount', 'insurance_amount', 'amount_total')
+    def _onchange_financial_amounts(self):
+        if self.amount_total > 0:
+            if self.excess_amount and not self.excess_percentage:
+                self.excess_percentage = (self.excess_amount / self.amount_total) * 100.0
+            if self.betterment_amount and not self.betterment_percentage:
+                self.betterment_percentage = (self.betterment_amount / self.amount_total) * 100.0
+            if self.insurance_amount and not self.insurance_percentage:
+                self.insurance_percentage = (self.insurance_amount / self.amount_total) * 100.0
 
     @api.depends('vehicle_id', 'vehicle_id.registration_number', 'vehicle_id.make_id.name', 'vehicle_id.model_id.name')
     def _compute_vehicle_display(self):
@@ -759,13 +769,6 @@ class JobCard(models.Model):
             else:
                 rec.vehicle_display = ""
 
-    @api.onchange('betterment_percentage', 'amount_total')
-    def _onchange_betterment_percentage(self):
-        if self.betterment_billing_policy_setting == 'percentage':
-            if self.amount_total:
-                self.betterment_amount = (self.betterment_percentage / 100) * self.amount_total
-            else:
-                self.betterment_amount = 0.0
 
     @api.constrains('authorization_letter_filename')
     def _check_authorization_file_extension(self):
@@ -912,24 +915,26 @@ class JobCard(models.Model):
                 total_amount = rec.amount_total
 
                 if has_insurance:
-                    if billing_policy == 'percentage':
+                    # Prefer exact manual amounts entered by user
+                    excess_value = rec.excess_amount
+                    if not excess_value and rec.excess_percentage and total_amount:
                         excess_value = total_amount * (rec.excess_percentage / 100.0)
-                        insurance_value = total_amount * (rec.insurance_percentage / 100.0)
-                        excess_factor = rec.excess_percentage / 100.0
-                        insurance_factor = rec.insurance_percentage / 100.0
-                    else:
-                        excess_value = rec.excess_amount
-                        insurance_value = rec.insurance_amount
-                        excess_factor = (excess_value / total_amount) if total_amount else 0.0
-                        insurance_factor = (insurance_value / total_amount) if total_amount else 0.0
 
                     if enable_betterment:
-                        if betterment_policy == 'percentage':
+                        betterment_value = rec.betterment_amount
+                        if not betterment_value and rec.betterment_percentage and total_amount:
                             betterment_value = total_amount * (rec.betterment_percentage / 100.0)
-                        else:
-                            betterment_value = rec.betterment_amount
                     else:
                         betterment_value = 0.0
+
+                    insurance_value = rec.insurance_amount
+                    if not insurance_value and rec.insurance_percentage and total_amount:
+                        insurance_value = total_amount * (rec.insurance_percentage / 100.0)
+                    if not insurance_value and total_amount:
+                        insurance_value = max(0.0, total_amount - (excess_value + betterment_value))
+
+                    excess_factor = (excess_value / total_amount) if total_amount else 0.0
+                    insurance_factor = (insurance_value / total_amount) if total_amount else 0.0
 
                     # Customer SO
                     customer_so = self.env['sale.order'].create({

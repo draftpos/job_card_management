@@ -31,4 +31,9 @@
     <record id="group_can_approve_purchase_order" model="res.groups">
         <field name="name">Can Approve Purchase Orders</field>
     </record>
+
+    <!-- NEW: Can Adjust Estimates -->
+    <record id="group_can_adjust_estimate" model="res.groups">
+        <field name="name">Can Adjust Estimates</field>
+    </record>
 </odoo>

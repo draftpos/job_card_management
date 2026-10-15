@@ -469,7 +469,14 @@
                     <button name="action_redo" string="Redo" type="object" class="btn-warning" 
                             invisible="state not in ['approved', 'converted']" 
                             confirm="Are you sure you want to redo this estimate? The linked quotation will be cancelled." groups="job_card_management.group_can_redo_estimate"/>
-                    <button name="action_open_job_card" string="Open Job Card" type="object" invisible="state not in ['approved'] or has_job_card"/>
+                    <button name="action_adjust" string="Adjust" type="object" class="btn-primary"
+                            invisible="state not in ['approved', 'converted'] or is_adjusting"
+                            groups="job_card_management.group_can_adjust_estimate,job_card_management.group_can_redo_estimate,job_card_management.group_can_approve_estimate"/>
+                    <button name="action_done_adjusting" string="Done Adjusting" type="object" class="btn-success"
+                            invisible="not is_adjusting"/>
+                    <button name="action_cancel_adjusting" string="Cancel Adjusting" type="object" class="btn-secondary"
+                            invisible="not is_adjusting"/>
+                    <button name="action_open_job_card" string="Open Job Card" type="object" invisible="state not in ['approved'] or has_job_card or is_adjusting"/>
                     
                     <!-- Preview buttons -->
                     <button name="action_preview_portal" string="Preview" type="object" class="btn-secondary"/>
@@ -483,14 +490,18 @@
                     <field name="state" widget="statusbar"/>
                 </header>
                 <sheet>
+                    <field name="is_adjusting" invisible="1"/>
+                    <div class="alert alert-warning text-center o_form_header" role="status" invisible="not is_adjusting">
+                        <strong>Quotation is unlocked for adjustment. You can add, modify, or remove lines below. Click "Done Adjusting" when finished.</strong>
+                    </div>
                     <group col="2">
                         <group string="Quotation Details">
                             <field name="billing_policy_setting" invisible="1"/>
                             <field name="betterment_billing_policy_setting" invisible="1"/>
                             <field name="enable_betterment_setting" invisible="1"/>
                             <field name="name" readonly="1"/>
-                            <field name="customer_id" readonly="state in ('approved', 'converted')"/>
-                            <field name="insurance_company_id" readonly="state in ('approved', 'converted')" context="{'default_customer_type': 'insurance'}"/>
+                            <field name="customer_id" readonly="state in ('approved', 'converted') and not is_adjusting"/>
+                            <field name="insurance_company_id" readonly="state in ('approved', 'converted') and not is_adjusting" context="{'default_customer_type': 'insurance'}"/>
                             <!-- Excess/Betterment/Insurance amount fields hidden at quotation level -->
                              <field name="excess_percentage" invisible="1"/>
                              <field name="excess_amount" invisible="1"/>
@@ -508,7 +519,7 @@
                                    required="insurance_company_id != False and authorization_type == 'link'"/>
                         </group>
                         <group string="Vehicle Details">
-                            <field name="vehicle_id" string="REG NO:" readonly="state in ('approved', 'converted')"
+                            <field name="vehicle_id" string="REG NO:" readonly="state in ('approved', 'converted') and not is_adjusting"
                                    context="{'default_customer_id': customer_id}"/>
                             <field name="vehicle_make" readonly="1"/>
                             <field name="vehicle_model" readonly="1"/>
@@ -520,7 +531,7 @@
                     <notebook>
                         <page string="Supply Parts" name="parts_lines">
                             <field name="parts_line_ids" widget="section_and_note_one2many" nolabel="1"
-                                readonly="state in ('approved', 'converted')"
+                                readonly="state in ('approved', 'converted') and not is_adjusting"
                                 context="{'default_line_category': 'parts'}">
                                 <list editable="bottom">
                                     <control>
@@ -546,7 +557,7 @@
                         </page>
                         <page string="Consumables" name="consumables_lines">
                             <field name="consumables_line_ids" widget="section_and_note_one2many" nolabel="1"
-                                readonly="state in ('approved', 'converted')"
+                                readonly="state in ('approved', 'converted') and not is_adjusting"
                                 context="{'default_line_category': 'consumables'}">
                                 <list editable="bottom">
                                     <control>
@@ -572,7 +583,7 @@
                         </page>
                         <page string="Repair Works" name="repairs_lines">
                             <field name="repairs_line_ids" widget="section_and_note_one2many" nolabel="1"
-                                readonly="state in ('approved', 'converted')"
+                                readonly="state in ('approved', 'converted') and not is_adjusting"
                                 context="{'default_line_category': 'repairs'}">
                                 <list editable="bottom">
                                     <control>
@@ -598,7 +609,7 @@
                         </page>
                         <page string="Paint Job" name="paint_lines">
                             <field name="paint_line_ids" widget="section_and_note_one2many" nolabel="1"
-                                readonly="state in ('approved', 'converted')"
+                                readonly="state in ('approved', 'converted') and not is_adjusting"
                                 context="{'default_line_category': 'paint'}">
                                 <list editable="bottom">
                                     <control>
@@ -624,7 +635,7 @@
                         </page>
                         <page string="Sundries" name="sundries_lines">
                             <field name="sundries_line_ids" widget="section_and_note_one2many" nolabel="1"
-                                readonly="state in ('approved', 'converted')"
+                                readonly="state in ('approved', 'converted') and not is_adjusting"
                                 context="{'default_line_category': 'sundries'}">
                                 <list editable="bottom">
                                     <control>
@@ -650,7 +661,7 @@
                         </page>
                         <page string="Fittings" name="fittings_lines">
                             <field name="fittings_line_ids" widget="section_and_note_one2many" nolabel="1"
-                                readonly="state in ('approved', 'converted')"
+                                readonly="state in ('approved', 'converted') and not is_adjusting"
                                 context="{'default_line_category': 'fittings'}">
                                 <list editable="bottom">
                                     <control>

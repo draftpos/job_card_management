@@ -143,6 +143,7 @@ class Estimate(models.Model):
         ('converted', 'Converted'),
     ], default='draft')
     has_job_card = fields.Boolean(string='Job Card Opened', default=False)
+    is_adjusting = fields.Boolean(string='Under Adjustment', default=False, copy=False)
     job_card_id = fields.Many2one('job.card', string='Linked Job Card')
     sale_order_id = fields.Many2one('sale.order', string='Sales Order')
     terms_and_conditions = fields.Html(
@@ -284,18 +285,7 @@ class Estimate(models.Model):
         return records
 
 
-    def write(self, vals):
-        locked_fields = {'customer_id', 'name', 'vehicle_id'}
-        if locked_fields.intersection(vals.keys()):
-            for estimate in self:
-                if estimate.state in ('approved', 'converted'):
-                    raise UserError(_(
-                        'Cannot change customer, estimate number, or vehicle on an approved '
-                        'estimate. Use Redo first.'
-                    ))
-        res = super().write(vals)
-        self._organize_lines()
-        return res
+
 
     def _organize_lines(self):
         categories = ['parts', 'consumables', 'repairs', 'paint', 'sundries', 'fittings']
@@ -385,6 +375,14 @@ class Estimate(models.Model):
         return records
 
     def write(self, vals):
+        locked_fields = {'customer_id', 'name', 'vehicle_id'}
+        if locked_fields.intersection(vals.keys()):
+            for estimate in self:
+                if estimate.state in ('approved', 'converted') and not estimate.is_adjusting:
+                    raise UserError(_(
+                        'Cannot change customer, estimate number, or vehicle on an approved '
+                        'estimate. Click Adjust first.'
+                    ))
         res = super().write(vals)
         self._organize_sections()
         return res
@@ -428,42 +426,36 @@ class Estimate(models.Model):
     def action_submit(self):
         self.state = 'submitted'
 
-    @api.depends('excess_amount', 'betterment_amount', 'amount_total', 'insurance_company_id')
+    @api.depends('insurance_amount', 'amount_total', 'insurance_company_id')
     def _compute_insurance_pct(self):
         for rec in self:
-            amount = rec.amount_total or 0.0
             if not rec.insurance_company_id:
-                rec.insurance_amount = 0.0
                 rec.insurance_percentage = 0.0
+            elif rec.amount_total > 0 and rec.insurance_amount:
+                rec.insurance_percentage = (rec.insurance_amount / rec.amount_total) * 100.0
             else:
-                rec.insurance_amount = amount - (rec.excess_amount + rec.betterment_amount)
-                if amount > 0:
-                    rec.insurance_percentage = (rec.insurance_amount / amount) * 100.0
-                else:
-                    rec.insurance_percentage = 0.0
+                rec.insurance_percentage = 0.0
 
-    @api.onchange('insurance_company_id')
-    def _onchange_insurance_company_defaults(self):
-        if not self.insurance_company_id:
-            self.excess_amount = 0.0
-            self.betterment_amount = 0.0
+    @api.onchange('excess_percentage')
+    def _onchange_excess_percentage(self):
+        if self.excess_percentage and self.amount_total and not self.excess_amount:
+            self.excess_amount = (self.excess_percentage / 100.0) * self.amount_total
 
-    @api.onchange('betterment_percentage', 'amount_total')
+    @api.onchange('betterment_percentage')
     def _onchange_betterment_percentage(self):
-        if self.betterment_billing_policy_setting == 'percentage':
-            if self.amount_total:
-                self.betterment_amount = (self.betterment_percentage / 100) * self.amount_total
-            else:
-                self.betterment_amount = 0.0
+        if self.betterment_percentage and self.amount_total and not self.betterment_amount:
+            self.betterment_amount = (self.betterment_percentage / 100.0) * self.amount_total
 
-    @api.onchange('excess_amount', 'betterment_amount', 'amount_total')
-    def _onchange_insurance_totals(self):
-        amount = self.amount_total or 0.0
-        self.insurance_amount = amount - (self.excess_amount + self.betterment_amount)
-        if amount > 0:
-            self.insurance_percentage = (self.insurance_amount / amount) * 100
-        else:
-            self.insurance_percentage = 0.0
+    @api.onchange('excess_amount', 'betterment_amount', 'insurance_amount', 'amount_total')
+    def _onchange_financial_amounts(self):
+        if self.amount_total > 0:
+            if self.excess_amount and not self.excess_percentage:
+                self.excess_percentage = (self.excess_amount / self.amount_total) * 100.0
+            if self.betterment_amount and not self.betterment_percentage:
+                self.betterment_percentage = (self.betterment_amount / self.amount_total) * 100.0
+            if self.insurance_amount and not self.insurance_percentage:
+                self.insurance_percentage = (self.insurance_amount / self.amount_total) * 100.0
+
 
     @api.constrains('authorization_letter_filename')
     def _check_authorization_file_extension(self):
@@ -534,6 +526,74 @@ class Estimate(models.Model):
                 estimate.insurance_sale_order_id = False
             estimate.state = 'draft'
 
+    def action_adjust(self):
+        if not (self.env.user.has_group('job_card_management.group_can_adjust_estimate') or 
+                self.env.user.has_group('job_card_management.group_can_redo_estimate') or 
+                self.env.user.has_group('job_card_management.group_can_approve_estimate')):
+            raise UserError(_('You do not have permission to adjust estimates.'))
+
+        for estimate in self:
+            if estimate.state not in ('approved', 'converted'):
+                raise UserError(_('Only approved or converted estimates can be adjusted.'))
+            estimate.is_adjusting = True
+            estimate.message_post(body=_("Estimate unlocked for adjustment by %s.") % self.env.user.name)
+
+    def action_done_adjusting(self):
+        for estimate in self:
+            estimate.is_adjusting = False
+            estimate._organize_sections()
+            estimate._compute_totals()
+
+            # Synchronize linked Sales Orders if any exist in draft/sent
+            if estimate.sale_order_id and estimate.sale_order_id.state in ('draft', 'sent'):
+                estimate._sync_sale_order_lines(estimate.sale_order_id, price_multiplier=1.0)
+            if estimate.insurance_sale_order_id and estimate.insurance_sale_order_id.state in ('draft', 'sent'):
+                insurance_factor = (estimate.insurance_percentage / 100.0) if estimate.insurance_percentage else 1.0
+                estimate._sync_sale_order_lines(estimate.insurance_sale_order_id, price_multiplier=insurance_factor)
+
+            # Synchronize linked Job Card lines if job card has not issued inventory or started procurement
+            if estimate.job_card_id and estimate.job_card_id.state in ('draft', 'approved'):
+                estimate._sync_job_card_lines(estimate.job_card_id)
+
+            estimate.message_post(body=_(
+                "Estimate adjustment completed by %s. Total amount is now %s."
+            ) % (self.env.user.name, estimate.amount_total))
+
+    def action_cancel_adjusting(self):
+        for estimate in self:
+            estimate.is_adjusting = False
+            estimate.message_post(body=_("Estimate adjustment was cancelled by %s.") % self.env.user.name)
+
+    def _sync_sale_order_lines(self, sale_order, price_multiplier=1.0):
+        self.ensure_one()
+        sale_order.order_line.unlink()
+        for line_vals in self._build_so_lines(price_multiplier=price_multiplier):
+            self.env['sale.order.line'].create(dict(line_vals, order_id=sale_order.id))
+
+    def _sync_job_card_lines(self, job_card):
+        self.ensure_one()
+        if not getattr(job_card, 'inventory_issue_ids', False) and not getattr(job_card, 'procurement_ids', False):
+            job_card.job_card_lines.unlink()
+            for line in self.estimate_lines:
+                line_vals = {
+                    'job_card_id': job_card.id,
+                    'sequence': line.sequence,
+                    'display_type': line.display_type,
+                    'name': line.name if line.name else (line.product_id.name if line.product_id else ''),
+                    'line_category': line.line_category,
+                    'product_id': line.product_id.id if line.product_id else False,
+                    'product_uom_id': line.product_uom_id.id if line.product_uom_id else False,
+                    'quantity': line.quantity,
+                    'unit_price': line.unit_price,
+                    'discount': line.discount,
+                }
+                if line.line_category:
+                    line_vals[f'{line.line_category}_job_card_id'] = job_card.id
+                if line.tax_ids:
+                    line_vals['tax_ids'] = [(6, 0, line.tax_ids.ids)]
+                self.env['job.card.line'].create(line_vals)
+            job_card._compute_totals()
+
     def action_open_job_card(self):
         if not self.env.user.has_group('job_card_management.group_can_open_job_card'):
             raise UserError(_('You are not allowed to open a job.'))
@@ -572,6 +632,7 @@ class Estimate(models.Model):
             'excess_amount': self.excess_amount,
             'betterment_percentage': self.betterment_percentage,
             'betterment_amount': self.betterment_amount,
+            'insurance_amount': self.insurance_amount,
         })
             
         self.write({
