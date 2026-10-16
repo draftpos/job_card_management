@@ -592,7 +592,8 @@ class Estimate(models.Model):
                 if line.tax_ids:
                     line_vals['tax_ids'] = [(6, 0, line.tax_ids.ids)]
                 self.env['job.card.line'].create(line_vals)
-            job_card._compute_totals()
+            job_card._organize_sections()
+            job_card._compute_total()
 
     def action_open_job_card(self):
         if not self.env.user.has_group('job_card_management.group_can_open_job_card'):

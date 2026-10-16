@@ -1,6 +1,6 @@
 {
     'name': 'Job Card Management',
-    'version': '19.0.2.0.5',
+    'version': '19.0.2.0.6',
     'category': 'Services',
     'summary': 'Workshop and automotive job cards, vehicle VIN catalog, technician tracking, inventory issues & profitability dashboard',
     'author': 'DraftPOS / Havano Solutions',
