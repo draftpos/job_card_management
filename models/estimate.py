@@ -62,16 +62,26 @@ class Estimate(models.Model):
     excess_percentage = fields.Float(
         string='Excess (%)',
         default=0.0,
-        help='Percentage of the total paid by the customer (excess). Insurance pays the rest.'
+        help='Percentage of the total paid by the customer (excess). Insurance pays the full quoted amount.'
     )
     insurance_percentage = fields.Float(
         string='Insurance Pays (%)',
         compute='_compute_insurance_pct',
         store=True,
-        help='Automatically computed as 100 minus the excess percentage.'
+        help='Percentage of the quotation covered by insurance.'
     )
-    excess_amount = fields.Float(string='Excess AMT', default=0.0)
-    insurance_amount = fields.Float(string='Insurance AMT', default=0.0)
+    excess_amount = fields.Float(
+        string='Excess AMT',
+        compute='_compute_excess_amount',
+        store=True,
+        readonly=False,
+    )
+    insurance_amount = fields.Float(
+        string='Insurance AMT',
+        compute='_compute_insurance_amount',
+        store=True,
+        readonly=False,
+    )
 
     authorization_type = fields.Selection([
         ('file', 'File'),
@@ -82,7 +92,13 @@ class Estimate(models.Model):
     authorization_link = fields.Char(string='Authorization Link')
 
     betterment_percentage = fields.Float(string='Betterment (%)', default=0.0)
-    betterment_amount = fields.Float(string='Betterment AMT', default=0.0)
+    betterment_amount = fields.Float(
+        string='Betterment AMT',
+        compute='_compute_betterment_amount',
+        store=True,
+        readonly=False,
+        default=0.0,
+    )
 
     billing_policy_setting = fields.Char(
         string='Billing Policy',
@@ -336,6 +352,12 @@ class Estimate(models.Model):
             estimate.amount_untaxed = sum(lines.mapped('price_subtotal'))
             estimate.amount_tax = sum(lines.mapped(lambda l: l.price_total - l.price_subtotal))
             estimate.amount_total = estimate.amount_untaxed + estimate.amount_tax
+            if estimate.insurance_company_id and (not estimate.insurance_amount or estimate.insurance_amount == 0.0):
+                estimate.insurance_amount = estimate.amount_total
+            if estimate.excess_percentage and (not estimate.excess_amount or estimate.excess_amount == 0.0):
+                estimate.excess_amount = (estimate.excess_percentage / 100.0) * estimate.amount_total
+            if estimate.betterment_percentage and (not estimate.betterment_amount or estimate.betterment_amount == 0.0):
+                estimate.betterment_amount = (estimate.betterment_percentage / 100.0) * estimate.amount_total
 
     def _organize_sections(self):
         categories = ['parts', 'consumables', 'repairs', 'paint', 'sundries', 'fittings']
@@ -372,6 +394,16 @@ class Estimate(models.Model):
     def create(self, vals_list):
         records = super().create(vals_list)
         records._organize_sections()
+        for rec in records:
+            vals_to_write = {}
+            if rec.insurance_company_id and not rec.insurance_amount and rec.amount_total:
+                vals_to_write['insurance_amount'] = rec.amount_total
+            if rec.excess_percentage and not rec.excess_amount and rec.amount_total:
+                vals_to_write['excess_amount'] = (rec.excess_percentage / 100.0) * rec.amount_total
+            if rec.betterment_percentage and not rec.betterment_amount and rec.amount_total:
+                vals_to_write['betterment_amount'] = (rec.betterment_percentage / 100.0) * rec.amount_total
+            if vals_to_write:
+                rec.write(vals_to_write)
         return records
 
     def write(self, vals):
@@ -385,11 +417,22 @@ class Estimate(models.Model):
                     ))
         res = super().write(vals)
         self._organize_sections()
+        if not self.env.context.get('skip_financial_auto_write'):
+            for rec in self.with_context(skip_financial_auto_write=True):
+                vals_to_write = {}
+                if rec.insurance_company_id and not rec.insurance_amount and rec.amount_total:
+                    vals_to_write['insurance_amount'] = rec.amount_total
+                if rec.excess_percentage and not rec.excess_amount and rec.amount_total:
+                    vals_to_write['excess_amount'] = (rec.excess_percentage / 100.0) * rec.amount_total
+                if rec.betterment_percentage and not rec.betterment_amount and rec.amount_total:
+                    vals_to_write['betterment_amount'] = (rec.betterment_percentage / 100.0) * rec.amount_total
+                if vals_to_write:
+                    rec.write(vals_to_write)
         return res
 
-    amount_untaxed = fields.Float(string='Total Excl', compute='_compute_totals')
-    amount_tax = fields.Float(string='Total Tax', compute='_compute_totals')
-    amount_total = fields.Float(string='Total Incl', compute='_compute_totals')
+    amount_untaxed = fields.Float(string='Total Excl', compute='_compute_totals', store=True)
+    amount_tax = fields.Float(string='Total Tax', compute='_compute_totals', store=True)
+    amount_total = fields.Float(string='Total Incl', compute='_compute_totals', store=True)
 
     def _job_card_form_action_xmlid(self):
         return 'job_card_management.action_estimate'
@@ -426,6 +469,40 @@ class Estimate(models.Model):
     def action_submit(self):
         self.state = 'submitted'
 
+    @api.onchange('insurance_company_id')
+    def _onchange_insurance_company_id(self):
+        if self.insurance_company_id:
+            if not self.insurance_amount:
+                self.insurance_amount = self.amount_total
+            self.insurance_percentage = 100.0
+        else:
+            self.insurance_amount = 0.0
+            self.insurance_percentage = 0.0
+
+    @api.depends('amount_total', 'insurance_company_id')
+    def _compute_insurance_amount(self):
+        for rec in self:
+            if rec.insurance_company_id:
+                rec.insurance_amount = rec.amount_total
+            else:
+                rec.insurance_amount = 0.0
+
+    @api.depends('amount_total', 'excess_percentage')
+    def _compute_excess_amount(self):
+        for rec in self:
+            if rec.excess_percentage and rec.amount_total:
+                rec.excess_amount = (rec.excess_percentage / 100.0) * rec.amount_total
+            elif not rec.excess_amount:
+                rec.excess_amount = 0.0
+
+    @api.depends('amount_total', 'betterment_percentage')
+    def _compute_betterment_amount(self):
+        for rec in self:
+            if rec.betterment_percentage and rec.amount_total:
+                rec.betterment_amount = (rec.betterment_percentage / 100.0) * rec.amount_total
+            elif not rec.betterment_amount:
+                rec.betterment_amount = 0.0
+
     @api.depends('insurance_amount', 'amount_total', 'insurance_company_id')
     def _compute_insurance_pct(self):
         for rec in self:
@@ -433,27 +510,31 @@ class Estimate(models.Model):
                 rec.insurance_percentage = 0.0
             elif rec.amount_total > 0 and rec.insurance_amount:
                 rec.insurance_percentage = (rec.insurance_amount / rec.amount_total) * 100.0
+            elif rec.amount_total > 0 and rec.insurance_company_id:
+                rec.insurance_percentage = 100.0
             else:
                 rec.insurance_percentage = 0.0
 
     @api.onchange('excess_percentage')
     def _onchange_excess_percentage(self):
-        if self.excess_percentage and self.amount_total and not self.excess_amount:
+        if self.excess_percentage and self.amount_total:
             self.excess_amount = (self.excess_percentage / 100.0) * self.amount_total
 
     @api.onchange('betterment_percentage')
     def _onchange_betterment_percentage(self):
-        if self.betterment_percentage and self.amount_total and not self.betterment_amount:
+        if self.betterment_percentage and self.amount_total:
             self.betterment_amount = (self.betterment_percentage / 100.0) * self.amount_total
 
-    @api.onchange('excess_amount', 'betterment_amount', 'insurance_amount', 'amount_total')
+    @api.onchange('excess_amount', 'betterment_amount', 'amount_total')
     def _onchange_financial_amounts(self):
         if self.amount_total > 0:
-            if self.excess_amount and not self.excess_percentage:
+            if self.excess_amount:
                 self.excess_percentage = (self.excess_amount / self.amount_total) * 100.0
-            if self.betterment_amount and not self.betterment_percentage:
+            if self.betterment_amount:
                 self.betterment_percentage = (self.betterment_amount / self.amount_total) * 100.0
-            if self.insurance_amount and not self.insurance_percentage:
+            if self.insurance_company_id:
+                if not self.insurance_amount:
+                    self.insurance_amount = self.amount_total
                 self.insurance_percentage = (self.insurance_amount / self.amount_total) * 100.0
 
 
@@ -548,8 +629,7 @@ class Estimate(models.Model):
             if estimate.sale_order_id and estimate.sale_order_id.state in ('draft', 'sent'):
                 estimate._sync_sale_order_lines(estimate.sale_order_id, price_multiplier=1.0)
             if estimate.insurance_sale_order_id and estimate.insurance_sale_order_id.state in ('draft', 'sent'):
-                insurance_factor = (estimate.insurance_percentage / 100.0) if estimate.insurance_percentage else 1.0
-                estimate._sync_sale_order_lines(estimate.insurance_sale_order_id, price_multiplier=insurance_factor)
+                estimate._sync_sale_order_lines(estimate.insurance_sale_order_id, price_multiplier=1.0)
 
             # Synchronize linked Job Card lines if job card has not issued inventory or started procurement
             if estimate.job_card_id and estimate.job_card_id.state in ('draft', 'approved'):
@@ -628,12 +708,23 @@ class Estimate(models.Model):
                 line_vals['tax_ids'] = [(6, 0, line.tax_ids.ids)]
             self.env['job.card.line'].create(line_vals)
             
-        job_card.write({
+        total_amt = self.amount_total or job_card.amount_total
+        excess_amount = self.excess_amount
+        if not excess_amount and self.excess_percentage and total_amt:
+            excess_amount = (self.excess_percentage / 100.0) * total_amt
+
+        betterment_amount = self.betterment_amount
+        if not betterment_amount and self.betterment_percentage and total_amt:
+            betterment_amount = (self.betterment_percentage / 100.0) * total_amt
+
+        insurance_amount = self.insurance_amount or (total_amt if self.insurance_company_id else 0.0)
+
+        job_card.with_context(skip_financial_auto_write=True).write({
             'excess_percentage': self.excess_percentage,
-            'excess_amount': self.excess_amount,
+            'excess_amount': excess_amount,
             'betterment_percentage': self.betterment_percentage,
-            'betterment_amount': self.betterment_amount,
-            'insurance_amount': self.insurance_amount,
+            'betterment_amount': betterment_amount,
+            'insurance_amount': insurance_amount,
         })
             
         self.write({

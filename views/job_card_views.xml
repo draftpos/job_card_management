@@ -80,17 +80,48 @@
                             <field name="authorization_letter_filename" invisible="1"/>
                             <field name="authorization_letter" filename="authorization_letter_filename" invisible="not second_customer_id or authorization_type != 'file'"/>
                             <field name="authorization_link" widget="url" invisible="not second_customer_id or authorization_type != 'link'"/>
-                            <!-- Financial split fields -->
-                            <field name="excess_percentage" readonly="state in ('completed', 'delivered')"/>
-                            <field name="excess_amount" readonly="state in ('completed', 'delivered')"/>
+                            <!-- Financial split fields with badges for % and AMT -->
+                            <label for="excess_percentage" string="Excess Percentage"/>
+                            <div class="o_row">
+                                <span class="badge rounded-pill text-bg-warning px-2 py-1 fw-bold me-1" style="color: #000000 !important;">EXCESS %</span>
+                                <field name="excess_percentage" class="oe_inline fw-bold" readonly="state in ('completed', 'delivered')"/>
+                                <span class="text-muted fw-bold ms-1">%</span>
+                            </div>
+
+                            <label for="excess_amount" string="Excess Amount"/>
+                            <div class="o_row">
+                                <span class="badge rounded-pill text-bg-success px-2 py-1 fw-bold me-1">EXCESS AMT ($)</span>
+                                <field name="excess_amount" class="oe_inline fw-bold" readonly="state in ('completed', 'delivered')"/>
+                            </div>
+
                             <!-- Betterment fields: only visible when enabled -->
-                            <field name="betterment_percentage" readonly="state in ('completed', 'delivered')"
-                                   invisible="not enable_betterment_setting"/>
-                            <field name="betterment_amount" readonly="state in ('completed', 'delivered')"
-                                   invisible="not enable_betterment_setting"/>
+                            <label for="betterment_percentage" string="Betterment Percentage" invisible="not enable_betterment_setting"/>
+                            <div class="o_row" invisible="not enable_betterment_setting">
+                                <span class="badge rounded-pill text-bg-info px-2 py-1 fw-bold me-1" style="color: #000000 !important;">BETTERMENT %</span>
+                                <field name="betterment_percentage" class="oe_inline fw-bold" readonly="state in ('completed', 'delivered')"/>
+                                <span class="text-muted fw-bold ms-1">%</span>
+                            </div>
+
+                            <label for="betterment_amount" string="Betterment Amount" invisible="not enable_betterment_setting"/>
+                            <div class="o_row" invisible="not enable_betterment_setting">
+                                <span class="badge rounded-pill text-bg-success px-2 py-1 fw-bold me-1">BETTERMENT AMT ($)</span>
+                                <field name="betterment_amount" class="oe_inline fw-bold" readonly="state in ('completed', 'delivered')"/>
+                            </div>
+
                             <!-- Insurance fields: editable amount, computed percentage -->
-                            <field name="insurance_amount" readonly="state in ('completed', 'delivered')" invisible="not second_customer_id"/>
-                            <field name="insurance_percentage" readonly="1" invisible="not second_customer_id"/>
+                            <label for="insurance_amount" string="Insurance Amount" invisible="not second_customer_id"/>
+                            <div class="o_row" invisible="not second_customer_id">
+                                <span class="badge rounded-pill text-bg-primary px-2 py-1 fw-bold me-1">INSURANCE AMT ($)</span>
+                                <field name="insurance_amount" class="oe_inline fw-bold" readonly="state in ('completed', 'delivered')"/>
+                            </div>
+
+                            <label for="insurance_percentage" string="Insurance Percentage" invisible="not second_customer_id"/>
+                            <div class="o_row" invisible="not second_customer_id">
+                                <span class="badge rounded-pill text-bg-secondary px-2 py-1 fw-bold me-1">INSURANCE %</span>
+                                <field name="insurance_percentage" class="oe_inline fw-bold" readonly="1"/>
+                                <span class="text-muted fw-bold ms-1">%</span>
+                            </div>
+
                             <field name="analytic_account_id" readonly="state in ('completed', 'delivered')"/>
                             <field name="customer_sale_order_id" readonly="1" string="Customer Order"
                                    invisible="not customer_sale_order_id"/>

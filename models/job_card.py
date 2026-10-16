@@ -42,13 +42,29 @@ class JobCard(models.Model):
     order_number = fields.Char(string='Order NO:')
     claims_number = fields.Char(string='Claims NO:')
     excess_percentage = fields.Float(string='Excess (%)', help='Percentage paid by first customer')
-    excess_amount = fields.Float(string='Excess AMT', default=0.0)
+    excess_amount = fields.Float(
+        string='Excess AMT',
+        compute='_compute_excess_amount',
+        store=True,
+        readonly=False,
+    )
     excess_warning_reason = fields.Char(string='Excess Zero Reason', help='Reason why excess amount is 0')
     insurance_percentage = fields.Float(string='Insurance Percentage (%)', compute='_compute_insurance_pct', store=True)
-    insurance_amount = fields.Float(string='Insurance AMT')
+    insurance_amount = fields.Float(
+        string='Insurance AMT',
+        compute='_compute_insurance_amount',
+        store=True,
+        readonly=False,
+    )
 
     betterment_percentage = fields.Float(string='Betterment (%)', default=0.0)
-    betterment_amount = fields.Float(string='Betterment AMT', default=0.0)
+    betterment_amount = fields.Float(
+        string='Betterment AMT',
+        compute='_compute_betterment_amount',
+        store=True,
+        readonly=False,
+        default=0.0,
+    )
 
     billing_policy_setting = fields.Char(
         string='Billing Policy',
@@ -134,13 +150,44 @@ class JobCard(models.Model):
     
     # Invoice tracking fields
     invoice_created = fields.Boolean(string='Invoice Created', default=False)
-    customer_invoice_id = fields.Many2one('account.move', string='Customer Invoice')
-    insurance_invoice_id = fields.Many2one('account.move', string='Insurance Invoice')
+    customer_invoice_id = fields.Many2one(
+        'account.move',
+        string='Customer Invoice',
+        compute='_compute_linked_invoices',
+        store=True,
+        readonly=False,
+    )
+    insurance_invoice_id = fields.Many2one(
+        'account.move',
+        string='Insurance Invoice',
+        compute='_compute_linked_invoices',
+        store=True,
+        readonly=False,
+    )
     auto_create_invoices = fields.Boolean(string='Auto Create Invoices', default=True,
                                           help='Automatically create invoices when job card is created')
     # Split sale orders linked from the estimate
     customer_sale_order_id = fields.Many2one('sale.order', string='Customer Sale Order')
     insurance_sale_order_id = fields.Many2one('sale.order', string='Insurance Sale Order')
+
+    @api.depends('customer_sale_order_id.invoice_ids', 'insurance_sale_order_id.invoice_ids')
+    def _compute_linked_invoices(self):
+        for rec in self:
+            if rec.customer_sale_order_id and rec.customer_sale_order_id.invoice_ids:
+                invoices = rec.customer_sale_order_id.invoice_ids.sorted(
+                    lambda inv: (inv.state == 'posted', inv.id), reverse=True
+                )
+                rec.customer_invoice_id = invoices[0].id
+            elif not rec.customer_invoice_id:
+                rec.customer_invoice_id = False
+
+            if rec.insurance_sale_order_id and rec.insurance_sale_order_id.invoice_ids:
+                invoices = rec.insurance_sale_order_id.invoice_ids.sorted(
+                    lambda inv: (inv.state == 'posted', inv.id), reverse=True
+                )
+                rec.insurance_invoice_id = invoices[0].id
+            elif not rec.insurance_invoice_id:
+                rec.insurance_invoice_id = False
     
     # Add this field
     access_token = fields.Char('Access Token', copy=False)
@@ -414,25 +461,46 @@ class JobCard(models.Model):
         # Get current date for invoice
         invoice_date = fields.Date.today()
         
-        # Create invoice for customer (excess amount)
-        customer_lines = self._prepare_invoice_lines('customer', income_account)
-        if customer_lines and self.customer_id and self.customer_id.partner_id:
+        # Create invoice for customer (excess / betterment amount)
+        if (self.excess_amount > 0 or self.betterment_amount > 0) and self.customer_id and self.customer_id.partner_id:
             customer_terms = self.env['ir.config_parameter'].sudo().get_param('job_card_management.customer_invoice_default_terms', default='')
-            narration = customer_terms if customer_terms else f"Customer portion of Job Card {self.name}"
+            narration = customer_terms if customer_terms else f"Customer portion (Excess) of Job Card {self.name}"
             
-            customer_invoice = self.env['account.move'].create({
-                'move_type': 'out_invoice',
-                'partner_id': self.customer_id.partner_id.id,
-                'invoice_origin': self.name,
-                'invoice_line_ids': customer_lines,
-                'invoice_date': invoice_date,
-                'narration': narration,
-                'ref': f"Job Card: {self.name} - Customer Portion",
-            })
-            customer_invoice.action_post()
-            self.customer_invoice_id = customer_invoice.id
+            excess_product = self._get_or_create_service_product('Excess')
+            betterment_product = self._get_or_create_service_product('Betterment')
+            
+            customer_invoice_lines = []
+            if self.excess_amount > 0:
+                customer_invoice_lines.append((0, 0, {
+                    'product_id': excess_product.id,
+                    'name': excess_product.name,
+                    'quantity': 1.0,
+                    'price_unit': self.excess_amount,
+                    'account_id': income_account.id,
+                }))
+            if self.enable_betterment_setting and self.betterment_amount > 0:
+                customer_invoice_lines.append((0, 0, {
+                    'product_id': betterment_product.id,
+                    'name': betterment_product.name,
+                    'quantity': 1.0,
+                    'price_unit': self.betterment_amount,
+                    'account_id': income_account.id,
+                }))
+            
+            if customer_invoice_lines:
+                customer_invoice = self.env['account.move'].create({
+                    'move_type': 'out_invoice',
+                    'partner_id': self.customer_id.partner_id.id,
+                    'invoice_origin': self.name,
+                    'invoice_line_ids': customer_invoice_lines,
+                    'invoice_date': invoice_date,
+                    'narration': narration,
+                    'ref': f"Job Card: {self.name} - Customer Portion (Excess)",
+                })
+                customer_invoice.action_post()
+                self.customer_invoice_id = customer_invoice.id
         
-        # Create invoice for insurance (insurance portion)
+        # Create invoice for insurance (full quoted items at 100% price)
         insurance_lines = self._prepare_invoice_lines('insurance', income_account)
         if insurance_lines and self.second_customer_id and self.second_customer_id.partner_id:
             insurance_terms = self.env['ir.config_parameter'].sudo().get_param('job_card_management.insurance_invoice_default_terms', default='')
@@ -456,7 +524,7 @@ class JobCard(models.Model):
 
     # NEW: Helper method to prepare invoice lines
     def _prepare_invoice_lines(self, invoice_type, income_account):
-        """Prepare invoice lines for either customer or insurance, including sections"""
+        """Prepare invoice lines for insurance or full quote, including sections and exact unit prices"""
         lines = []
         
         for line in self.job_card_lines:
@@ -467,30 +535,27 @@ class JobCard(models.Model):
                     'name': line.name,
                 }
                 lines.append((0, 0, invoice_line_vals))
-            # Include product lines with split amounts
-            elif line.price_total > 0:
-                if invoice_type == 'customer':
-                    price = line.price_total * (self.excess_percentage / 100)
-                    price_unit = price / line.quantity if line.quantity > 0 else price
-                else:  # insurance
-                    price = line.quantity * line.rate_2
-                    price_unit = line.rate_2
-                
-                if price > 0:
-                    invoice_line_vals = {
-                        'name': line.name or (line.product_id.name if line.product_id else 'Job Card Service'),
-                        'quantity': line.quantity,
-                        'price_unit': price_unit,
-                        'account_id': income_account.id,
+            # Include product lines with exact unit prices (no excess discount)
+            elif line.price_total > 0 or line.unit_price > 0:
+                price_unit = line.unit_price
+                invoice_line_vals = {
+                    'name': line.name or (line.product_id.name if line.product_id else 'Job Card Service'),
+                    'quantity': line.quantity,
+                    'price_unit': price_unit,
+                    'discount': line.discount or 0.0,
+                    'account_id': income_account.id,
+                }
+                if line.product_id:
+                    invoice_line_vals['product_id'] = line.product_id.id
+                if line.tax_ids:
+                    invoice_line_vals['tax_ids'] = [(6, 0, line.tax_ids.ids)]
+                # Assign analytic account to invoice line if available
+                if self.analytic_account_id:
+                    invoice_line_vals['analytic_distribution'] = {
+                        str(self.analytic_account_id.id): 100.0
                     }
-                    
-                    # Assign analytic account to invoice line if available
-                    if self.analytic_account_id:
-                        invoice_line_vals['analytic_distribution'] = {
-                            str(self.analytic_account_id.id): 100.0
-                        }
-                    
-                    lines.append((0, 0, invoice_line_vals))
+                
+                lines.append((0, 0, invoice_line_vals))
         
         return lines
 
@@ -727,6 +792,40 @@ class JobCard(models.Model):
                     sale_order.action_cancel()
             rec.state = 'draft'
 
+    @api.onchange('second_customer_id')
+    def _onchange_second_customer_id(self):
+        if self.second_customer_id:
+            if not self.insurance_amount:
+                self.insurance_amount = self.amount_total
+            self.insurance_percentage = 100.0
+        else:
+            self.insurance_amount = 0.0
+            self.insurance_percentage = 0.0
+
+    @api.depends('amount_total', 'second_customer_id')
+    def _compute_insurance_amount(self):
+        for rec in self:
+            if rec.second_customer_id:
+                rec.insurance_amount = rec.amount_total
+            else:
+                rec.insurance_amount = 0.0
+
+    @api.depends('amount_total', 'excess_percentage')
+    def _compute_excess_amount(self):
+        for rec in self:
+            if rec.excess_percentage and rec.amount_total:
+                rec.excess_amount = (rec.excess_percentage / 100.0) * rec.amount_total
+            elif not rec.excess_amount:
+                rec.excess_amount = 0.0
+
+    @api.depends('amount_total', 'betterment_percentage')
+    def _compute_betterment_amount(self):
+        for rec in self:
+            if rec.betterment_percentage and rec.amount_total:
+                rec.betterment_amount = (rec.betterment_percentage / 100.0) * rec.amount_total
+            elif not rec.betterment_amount:
+                rec.betterment_amount = 0.0
+
     @api.depends('insurance_amount', 'amount_total', 'second_customer_id')
     def _compute_insurance_pct(self):
         for rec in self:
@@ -734,27 +833,31 @@ class JobCard(models.Model):
                 rec.insurance_percentage = 0.0
             elif rec.amount_total > 0 and rec.insurance_amount:
                 rec.insurance_percentage = (rec.insurance_amount / rec.amount_total) * 100.0
+            elif rec.amount_total > 0 and rec.second_customer_id:
+                rec.insurance_percentage = 100.0
             else:
                 rec.insurance_percentage = 0.0
 
     @api.onchange('excess_percentage')
     def _onchange_excess_percentage(self):
-        if self.excess_percentage and self.amount_total and not self.excess_amount:
+        if self.excess_percentage and self.amount_total:
             self.excess_amount = (self.excess_percentage / 100.0) * self.amount_total
 
     @api.onchange('betterment_percentage')
     def _onchange_betterment_percentage(self):
-        if self.betterment_percentage and self.amount_total and not self.betterment_amount:
+        if self.betterment_percentage and self.amount_total:
             self.betterment_amount = (self.betterment_percentage / 100.0) * self.amount_total
 
-    @api.onchange('excess_amount', 'betterment_amount', 'insurance_amount', 'amount_total')
+    @api.onchange('excess_amount', 'betterment_amount', 'amount_total')
     def _onchange_financial_amounts(self):
         if self.amount_total > 0:
-            if self.excess_amount and not self.excess_percentage:
+            if self.excess_amount:
                 self.excess_percentage = (self.excess_amount / self.amount_total) * 100.0
-            if self.betterment_amount and not self.betterment_percentage:
+            if self.betterment_amount:
                 self.betterment_percentage = (self.betterment_amount / self.amount_total) * 100.0
-            if self.insurance_amount and not self.insurance_percentage:
+            if self.second_customer_id:
+                if not self.insurance_amount:
+                    self.insurance_amount = self.amount_total
                 self.insurance_percentage = (self.insurance_amount / self.amount_total) * 100.0
 
     @api.depends('vehicle_id', 'vehicle_id.registration_number', 'vehicle_id.make_id.name', 'vehicle_id.model_id.name')
@@ -807,7 +910,12 @@ class JobCard(models.Model):
             rec.amount_untaxed = sum(lines.mapped('price_subtotal'))
             rec.amount_tax = sum(lines.mapped('tax_amount'))
             rec.amount_total = rec.amount_untaxed + rec.amount_tax
-            rec.total_amount = rec.amount_total
+            if rec.second_customer_id and (not rec.insurance_amount or rec.insurance_amount == 0.0):
+                rec.insurance_amount = rec.amount_total
+            if rec.excess_percentage and (not rec.excess_amount or rec.excess_amount == 0.0):
+                rec.excess_amount = (rec.excess_percentage / 100.0) * rec.amount_total
+            if rec.betterment_percentage and (not rec.betterment_amount or rec.betterment_amount == 0.0):
+                rec.betterment_amount = (rec.betterment_percentage / 100.0) * rec.amount_total
 
     def _organize_sections(self):
         categories = ['parts', 'consumables', 'repairs', 'paint', 'sundries', 'fittings']
@@ -845,11 +953,32 @@ class JobCard(models.Model):
     def create(self, vals_list):
         records = super().create(vals_list)
         records._organize_sections()
+        for rec in records:
+            vals_to_write = {}
+            if rec.second_customer_id and not rec.insurance_amount and rec.amount_total:
+                vals_to_write['insurance_amount'] = rec.amount_total
+            if rec.excess_percentage and not rec.excess_amount and rec.amount_total:
+                vals_to_write['excess_amount'] = (rec.excess_percentage / 100.0) * rec.amount_total
+            if rec.betterment_percentage and not rec.betterment_amount and rec.amount_total:
+                vals_to_write['betterment_amount'] = (rec.betterment_percentage / 100.0) * rec.amount_total
+            if vals_to_write:
+                rec.write(vals_to_write)
         return records
 
     def write(self, vals):
         res = super().write(vals)
         self._organize_sections()
+        if not self.env.context.get('skip_financial_auto_write'):
+            for rec in self.with_context(skip_financial_auto_write=True):
+                vals_to_write = {}
+                if rec.second_customer_id and not rec.insurance_amount and rec.amount_total:
+                    vals_to_write['insurance_amount'] = rec.amount_total
+                if rec.excess_percentage and not rec.excess_amount and rec.amount_total:
+                    vals_to_write['excess_amount'] = (rec.excess_percentage / 100.0) * rec.amount_total
+                if rec.betterment_percentage and not rec.betterment_amount and rec.amount_total:
+                    vals_to_write['betterment_amount'] = (rec.betterment_percentage / 100.0) * rec.amount_total
+                if vals_to_write:
+                    rec.write(vals_to_write)
         return res
 
     def _build_so_lines_from_job(self, price_multiplier=1.0):
@@ -879,8 +1008,17 @@ class JobCard(models.Model):
 
     def action_approve_job_card(self):
         for rec in self:
+            vals_to_fix = {}
+            if not rec.excess_amount and rec.excess_percentage and rec.amount_total:
+                vals_to_fix['excess_amount'] = (rec.excess_percentage / 100.0) * rec.amount_total
+            if not rec.insurance_amount and rec.second_customer_id:
+                vals_to_fix['insurance_amount'] = rec.amount_total
+            if vals_to_fix:
+                rec.with_context(skip_financial_auto_write=True).write(vals_to_fix)
+
+            excess_amt = rec.excess_amount or vals_to_fix.get('excess_amount', 0.0)
             # Soft excess warning: if insurance company is set but excess is 0
-            if rec.second_customer_id and not rec.excess_amount and not rec.excess_warning_reason:
+            if rec.second_customer_id and not excess_amt and not rec.excess_warning_reason:
                 return {
                     'type': 'ir.actions.act_window',
                     'name': 'Excess Amount Warning',
@@ -927,21 +1065,14 @@ class JobCard(models.Model):
                     else:
                         betterment_value = 0.0
 
-                    insurance_value = rec.insurance_amount
-                    if not insurance_value and rec.insurance_percentage and total_amount:
-                        insurance_value = total_amount * (rec.insurance_percentage / 100.0)
-                    if not insurance_value and total_amount:
-                        insurance_value = max(0.0, total_amount - (excess_value + betterment_value))
+                    insurance_value = total_amount
 
-                    excess_factor = (excess_value / total_amount) if total_amount else 0.0
-                    insurance_factor = (insurance_value / total_amount) if total_amount else 0.0
-
-                    # Customer SO
+                    # Customer SO (Excess / Betterment)
                     customer_so = self.env['sale.order'].create({
                         'partner_id': rec.customer_id.partner_id.id,
                         'user_id': self.env.user.id,
                         'origin': f"{rec.name} (Customer)",
-                        'note': f"Customer portion of Job Card {rec.name}",
+                        'note': f"Customer portion (Excess) of Job Card {rec.name}",
                     })
                     rec.customer_sale_order_id = customer_so.id
                     
@@ -966,7 +1097,7 @@ class JobCard(models.Model):
                         
                     customer_so.action_confirm()
 
-                    # Insurance SO
+                    # Insurance SO: full quote lines at 100% unit prices (multiplier 1.0)
                     insurance_so = self.env['sale.order'].create({
                         'partner_id': rec.second_customer_id.partner_id.id,
                         'user_id': customer_so.user_id.id or self.env.user.id,
@@ -974,7 +1105,7 @@ class JobCard(models.Model):
                         'note': f"Insurance portion of Job Card {rec.name}",
                     })
                     rec.insurance_sale_order_id = insurance_so.id
-                    for line_vals in rec._build_so_lines_from_job(price_multiplier=insurance_factor):
+                    for line_vals in rec._build_so_lines_from_job(price_multiplier=1.0):
                         self.env['sale.order.line'].create(dict(line_vals, order_id=insurance_so.id))
                     insurance_so.action_confirm()
                 else:
@@ -1021,6 +1152,7 @@ class JobCard(models.Model):
                     rec._generate_linked_invoices()
                 except UserError as e:
                     _logger.warning(f"Could not auto-create invoices for job card {rec.name}: {str(e)}")
+        return True
 
     def action_start_job(self):
         self._check_schedule_dates()
@@ -1075,21 +1207,32 @@ class JobCard(models.Model):
 
         if self.customer_sale_order_id:
             # Invoice customer SO
-            if self.customer_sale_order_id.invoice_status in ('to invoice', 'no'):
+            if not self.customer_sale_order_id.invoice_ids and self.customer_sale_order_id.invoice_status in ('to invoice', 'no'):
                 customer_invoices = self.customer_sale_order_id._create_invoices()
-                customer_invoices.action_post()
                 if customer_invoices:
                     self.customer_invoice_id = customer_invoices[0].id
+                    try:
+                        customer_invoices.action_post()
+                    except Exception as e:
+                        _logger.warning(f"Could not auto-post customer invoice for job card {self.name}: {e}")
+            elif self.customer_sale_order_id.invoice_ids:
+                self.customer_invoice_id = self.customer_sale_order_id.invoice_ids[0].id
 
+        if self.insurance_sale_order_id:
             # Invoice insurance SO (if exists)
-            if self.insurance_sale_order_id and self.insurance_sale_order_id.invoice_status in ('to invoice', 'no'):
+            if not self.insurance_sale_order_id.invoice_ids and self.insurance_sale_order_id.invoice_status in ('to invoice', 'no'):
                 insurance_invoices = self.insurance_sale_order_id._create_invoices()
-                insurance_invoices.write({'is_insurance_invoice': True})
-                insurance_invoices.action_post()
                 if insurance_invoices:
                     self.insurance_invoice_id = insurance_invoices[0].id
+                    insurance_invoices.write({'is_insurance_invoice': True})
+                    try:
+                        insurance_invoices.action_post()
+                    except Exception as e:
+                        _logger.warning(f"Could not auto-post insurance invoice for job card {self.name}: {e}")
+            elif self.insurance_sale_order_id.invoice_ids:
+                self.insurance_invoice_id = self.insurance_sale_order_id.invoice_ids[0].id
 
-            self.invoice_created = True
+        self.invoice_created = bool(self.customer_invoice_id or self.insurance_invoice_id)
 
     def action_finalize_job_card(self):
         if not self.second_customer_id:
@@ -1251,22 +1394,10 @@ class JobCardLine(models.Model):
     price_total = fields.Float(string='Amount', compute='_compute_amount', store=True)
     rate_2 = fields.Float(string='Rate 2', compute='_compute_rate_2', store=True)
 
-    @api.depends('unit_price', 'job_card_id.amount_total', 'job_card_id.insurance_amount',
-                 'parts_job_card_id.amount_total', 'parts_job_card_id.insurance_amount',
-                 'consumables_job_card_id.amount_total', 'consumables_job_card_id.insurance_amount',
-                 'repairs_job_card_id.amount_total', 'repairs_job_card_id.insurance_amount',
-                 'paint_job_card_id.amount_total', 'paint_job_card_id.insurance_amount',
-                 'sundries_job_card_id.amount_total', 'sundries_job_card_id.insurance_amount',
-                 'fittings_job_card_id.amount_total', 'fittings_job_card_id.insurance_amount')
+    @api.depends('unit_price')
     def _compute_rate_2(self):
         for line in self:
-            parent = (line.job_card_id or line.parts_job_card_id or line.consumables_job_card_id or 
-                      line.repairs_job_card_id or line.paint_job_card_id or line.sundries_job_card_id or 
-                      line.fittings_job_card_id)
-            if parent and parent.amount_total > 0:
-                line.rate_2 = (line.unit_price / parent.amount_total) * parent.insurance_amount
-            else:
-                line.rate_2 = 0.0
+            line.rate_2 = line.unit_price
 
 
 
