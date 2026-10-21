@@ -682,7 +682,7 @@ class Estimate(models.Model):
             raise UserError(_('Job card already opened for this estimate.'))
 
         today = fields.Date.today()
-        job_card = self.env['job.card'].with_context(skip_default_lines=True).create({
+        job_card = self.env['job.card'].with_context(skip_default_lines=True, opening_from_estimate=True).create({
             'estimate_id': self.id,
             'customer_id': self.customer_id.id,
             'second_customer_id': self.insurance_company_id.id if self.insurance_company_id else False,
@@ -719,7 +719,7 @@ class Estimate(models.Model):
 
         insurance_amount = self.insurance_amount or (total_amt if self.insurance_company_id else 0.0)
 
-        job_card.with_context(skip_financial_auto_write=True).write({
+        job_card.with_context(skip_financial_auto_write=True, opening_from_estimate=True).write({
             'excess_percentage': self.excess_percentage,
             'excess_amount': excess_amount,
             'betterment_percentage': self.betterment_percentage,

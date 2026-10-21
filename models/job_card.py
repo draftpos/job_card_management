@@ -891,6 +891,9 @@ class JobCard(models.Model):
         'insurance_amount',
     )
     def _check_job_card_mandatory_fields(self):
+        # Do not block initial creation when clicking Open Job Card from estimate
+        if self.env.context.get('opening_from_estimate'):
+            return
         for rec in self:
             # 1. Insurance Company is mandatory
             if not rec.second_customer_id:
