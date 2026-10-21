@@ -881,6 +881,33 @@ class JobCard(models.Model):
                 if not rec.authorization_letter_filename.lower().endswith(allowed_extensions):
                     raise ValidationError("The authorization letter must be a PDF, TXT, DOC, or DOCX file.")
 
+    @api.constrains(
+        'second_customer_id',
+        'is_cash',
+        'order_number',
+        'excess_percentage',
+        'excess_amount',
+        'insurance_percentage',
+        'insurance_amount',
+    )
+    def _check_job_card_mandatory_fields(self):
+        for rec in self:
+            # 1. Insurance Company is mandatory
+            if not rec.second_customer_id:
+                raise ValidationError(_("Insurance Company is mandatory. Please select an Insurance Company."))
+
+            # 2. Cash Payment or Order Number (at least one must be entered)
+            if not rec.is_cash and not (rec.order_number and rec.order_number.strip()):
+                raise ValidationError(_("You must either check 'Cash Payment' or enter an 'Order NO:' to save the Job Card."))
+
+            # 3. Excess Percentage or Excess Amount (at least one must be entered)
+            if (rec.excess_percentage or 0.0) <= 0.0 and (rec.excess_amount or 0.0) <= 0.0:
+                raise ValidationError(_("Either Excess Percentage (%) or Excess Amount ($) must be entered."))
+
+            # 4. Insurance Percentage or Insurance Amount (at least one must be entered)
+            if (rec.insurance_percentage or 0.0) <= 0.0 and (rec.insurance_amount or 0.0) <= 0.0:
+                raise ValidationError(_("Either Insurance Percentage (%) or Insurance Amount ($) must be entered."))
+
     @api.constrains('excess_amount', 'betterment_amount', 'amount_total')
     def _check_insurance_amounts(self):
         for rec in self:
@@ -910,6 +937,7 @@ class JobCard(models.Model):
             rec.amount_untaxed = sum(lines.mapped('price_subtotal'))
             rec.amount_tax = sum(lines.mapped('tax_amount'))
             rec.amount_total = rec.amount_untaxed + rec.amount_tax
+            rec.total_amount = rec.insurance_amount if (rec.second_customer_id and rec.insurance_amount) else rec.amount_total
             if rec.second_customer_id and (not rec.insurance_amount or rec.insurance_amount == 0.0):
                 rec.insurance_amount = rec.amount_total
             if rec.excess_percentage and (not rec.excess_amount or rec.excess_amount == 0.0):
