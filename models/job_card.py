@@ -43,6 +43,12 @@ class JobCard(models.Model):
     claims_number = fields.Char(string='Claims NO:')
     is_insurance = fields.Boolean(string='Insurance', default=True)
     is_cash = fields.Boolean(string='Cash', default=False)
+    billing_type = fields.Selection(
+        [('insurance', 'Insurance'), ('cash', 'Cash')],
+        string='Billing Type',
+        default='insurance',
+        required=True,
+    )
     cash_receipt_ref = fields.Char(string='Receipt No.')
     receipt_attachment = fields.Binary(string='Receipt', attachment=True)
     receipt_filename = fields.Char(string='Receipt Filename')
@@ -844,19 +850,42 @@ class JobCard(models.Model):
         if self.excess_percentage and self.amount_total:
             self.excess_amount = (self.excess_percentage / 100.0) * self.amount_total
 
+    @api.onchange('billing_type')
+    def _onchange_billing_type(self):
+        if self.billing_type == 'insurance':
+            self.is_insurance = True
+            self.is_cash = False
+            if not self.second_customer_id and self.estimate_id and self.estimate_id.insurance_company_id:
+                self.second_customer_id = self.estimate_id.insurance_company_id.id
+        elif self.billing_type == 'cash':
+            self.is_insurance = False
+            self.is_cash = True
+            self.second_customer_id = False
+            self.excess_percentage = 0.0
+            self.excess_amount = 0.0
+            self.betterment_percentage = 0.0
+            self.betterment_amount = 0.0
+            self.insurance_amount = 0.0
+            self.insurance_percentage = 0.0
+            self.order_number = False
+            self.claims_number = False
+
     @api.onchange('is_insurance')
     def _onchange_is_insurance(self):
         if self.is_insurance:
             self.is_cash = False
+            self.billing_type = 'insurance'
             if not self.second_customer_id and self.estimate_id and self.estimate_id.insurance_company_id:
                 self.second_customer_id = self.estimate_id.insurance_company_id.id
         elif not self.is_cash:
             self.is_cash = True
+            self.billing_type = 'cash'
 
     @api.onchange('is_cash')
     def _onchange_is_cash(self):
         if self.is_cash:
             self.is_insurance = False
+            self.billing_type = 'cash'
             self.second_customer_id = False
             self.excess_percentage = 0.0
             self.excess_amount = 0.0
@@ -868,6 +897,7 @@ class JobCard(models.Model):
             self.claims_number = False
         elif not self.is_insurance:
             self.is_insurance = True
+            self.billing_type = 'insurance'
 
     @api.onchange('betterment_percentage')
     def _onchange_betterment_percentage(self):
@@ -981,6 +1011,18 @@ class JobCard(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        for vals in vals_list:
+            if 'billing_type' in vals:
+                if vals['billing_type'] == 'cash':
+                    vals['is_cash'] = True
+                    vals['is_insurance'] = False
+                elif vals['billing_type'] == 'insurance':
+                    vals['is_insurance'] = True
+                    vals['is_cash'] = False
+            elif 'is_cash' in vals and not vals.get('is_insurance'):
+                vals['billing_type'] = 'cash' if vals['is_cash'] else 'insurance'
+            elif 'is_insurance' in vals and not vals.get('is_cash'):
+                vals['billing_type'] = 'insurance' if vals['is_insurance'] else 'cash'
         records = super().create(vals_list)
         records._organize_sections()
         for rec in records:
@@ -997,6 +1039,20 @@ class JobCard(models.Model):
         return records
 
     def write(self, vals):
+        if 'billing_type' in vals:
+            if vals['billing_type'] == 'cash':
+                vals['is_cash'] = True
+                vals['is_insurance'] = False
+            elif vals['billing_type'] == 'insurance':
+                vals['is_insurance'] = True
+                vals['is_cash'] = False
+        elif 'is_cash' in vals and 'is_insurance' not in vals:
+            vals['is_insurance'] = not vals['is_cash']
+            vals['billing_type'] = 'cash' if vals['is_cash'] else 'insurance'
+        elif 'is_insurance' in vals and 'is_cash' not in vals:
+            vals['is_cash'] = not vals['is_insurance']
+            vals['billing_type'] = 'insurance' if vals['is_insurance'] else 'cash'
+
         res = super().write(vals)
         self._organize_sections()
         if not self.env.context.get('skip_financial_auto_write'):

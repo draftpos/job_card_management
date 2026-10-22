@@ -686,6 +686,7 @@ class Estimate(models.Model):
         job_card = self.env['job.card'].with_context(skip_default_lines=True, opening_from_estimate=True).create({
             'estimate_id': self.id,
             'customer_id': self.customer_id.id,
+            'billing_type': 'insurance' if is_insurance else 'cash',
             'is_insurance': is_insurance,
             'is_cash': not is_insurance,
             'second_customer_id': self.insurance_company_id.id if is_insurance else False,

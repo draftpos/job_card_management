@@ -57,17 +57,12 @@
                         </button>
                     </div>
                     
+                    <field name="is_insurance" invisible="1"/>
+                    <field name="is_cash" invisible="1"/>
                     <div class="row mb-3 mt-2">
                         <div class="col-12 d-flex align-items-center">
                             <span class="fw-bold me-3 text-uppercase text-muted" style="letter-spacing: 0.5px;">Job Card Billing Type:</span>
-                            <div class="form-check form-check-inline me-4">
-                                <field name="is_insurance" widget="boolean_toggle" class="oe_inline me-1" readonly="state in ('completed', 'delivered')"/>
-                                <label for="is_insurance" class="form-check-label fw-bold text-primary">Insurance</label>
-                            </div>
-                            <div class="form-check form-check-inline">
-                                <field name="is_cash" widget="boolean_toggle" class="oe_inline me-1" readonly="state in ('completed', 'delivered')"/>
-                                <label for="is_cash" class="form-check-label fw-bold text-success">Cash</label>
-                            </div>
+                            <field name="billing_type" widget="radio" options="{'horizontal': true}" class="oe_inline fw-bold" readonly="state in ('completed', 'delivered')"/>
                         </div>
                     </div>
 
