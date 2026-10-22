@@ -41,6 +41,11 @@ class JobCard(models.Model):
     second_customer_id = fields.Many2one('customer', string='Insurance Company', help='Added at final stage')
     order_number = fields.Char(string='Order NO:')
     claims_number = fields.Char(string='Claims NO:')
+    is_insurance = fields.Boolean(string='Insurance', default=True)
+    is_cash = fields.Boolean(string='Cash', default=False)
+    cash_receipt_ref = fields.Char(string='Receipt No.')
+    receipt_attachment = fields.Binary(string='Receipt', attachment=True)
+    receipt_filename = fields.Char(string='Receipt Filename')
     excess_percentage = fields.Float(string='Excess (%)', help='Percentage paid by first customer')
     excess_amount = fields.Float(
         string='Excess AMT',
@@ -558,10 +563,6 @@ class JobCard(models.Model):
                 lines.append((0, 0, invoice_line_vals))
         
         return lines
-
-    is_cash = fields.Boolean(string='Cash Payment', default=False)
-    cash_receipt_ref = fields.Char(string='Receipt/Reference No.')
-
     inventory_issue_ids = fields.One2many('job.inventory.issue', 'job_card_id', string='Inventory Issues')
     inventory_issue_count = fields.Integer(string='Inventory Issues Count', compute='_compute_inventory_issue_count')
     all_inventory_issued = fields.Boolean(string='All Inventory Issued', compute='_compute_all_inventory_issued', store=True)
@@ -843,6 +844,31 @@ class JobCard(models.Model):
         if self.excess_percentage and self.amount_total:
             self.excess_amount = (self.excess_percentage / 100.0) * self.amount_total
 
+    @api.onchange('is_insurance')
+    def _onchange_is_insurance(self):
+        if self.is_insurance:
+            self.is_cash = False
+            if not self.second_customer_id and self.estimate_id and self.estimate_id.insurance_company_id:
+                self.second_customer_id = self.estimate_id.insurance_company_id.id
+        elif not self.is_cash:
+            self.is_cash = True
+
+    @api.onchange('is_cash')
+    def _onchange_is_cash(self):
+        if self.is_cash:
+            self.is_insurance = False
+            self.second_customer_id = False
+            self.excess_percentage = 0.0
+            self.excess_amount = 0.0
+            self.betterment_percentage = 0.0
+            self.betterment_amount = 0.0
+            self.insurance_amount = 0.0
+            self.insurance_percentage = 0.0
+            self.order_number = False
+            self.claims_number = False
+        elif not self.is_insurance:
+            self.is_insurance = True
+
     @api.onchange('betterment_percentage')
     def _onchange_betterment_percentage(self):
         if self.betterment_percentage and self.amount_total:
@@ -882,13 +908,14 @@ class JobCard(models.Model):
                     raise ValidationError("The authorization letter must be a PDF, TXT, DOC, or DOCX file.")
 
 
-    @api.constrains('excess_amount', 'betterment_amount', 'amount_total')
+    @api.constrains('excess_amount', 'betterment_amount', 'amount_total', 'is_insurance')
     def _check_insurance_amounts(self):
         for rec in self:
-            if rec.excess_amount < 0 or rec.betterment_amount < 0:
-                raise ValidationError("Excess and Betterment amounts must be positive.")
-            if round(rec.excess_amount + rec.betterment_amount, 2) > round(rec.amount_total, 2):
-                raise ValidationError("The sum of Excess and Betterment amounts cannot exceed the Total Invoice amount.")
+            if rec.is_insurance:
+                if rec.excess_amount < 0 or rec.betterment_amount < 0:
+                    raise ValidationError("Excess and Betterment amounts must be positive.")
+                if round(rec.excess_amount + rec.betterment_amount, 2) > round(rec.amount_total, 2):
+                    raise ValidationError("The sum of Excess and Betterment amounts cannot exceed the Total Invoice amount.")
 
     @api.depends(
         'job_card_lines.price_total', 'job_card_lines.price_subtotal', 'job_card_lines.tax_amount',
@@ -911,13 +938,14 @@ class JobCard(models.Model):
             rec.amount_untaxed = sum(lines.mapped('price_subtotal'))
             rec.amount_tax = sum(lines.mapped('tax_amount'))
             rec.amount_total = rec.amount_untaxed + rec.amount_tax
-            rec.total_amount = rec.insurance_amount if (rec.second_customer_id and rec.insurance_amount) else rec.amount_total
-            if rec.second_customer_id and (not rec.insurance_amount or rec.insurance_amount == 0.0):
-                rec.insurance_amount = rec.amount_total
-            if rec.excess_percentage and (not rec.excess_amount or rec.excess_amount == 0.0):
-                rec.excess_amount = (rec.excess_percentage / 100.0) * rec.amount_total
-            if rec.betterment_percentage and (not rec.betterment_amount or rec.betterment_amount == 0.0):
-                rec.betterment_amount = (rec.betterment_percentage / 100.0) * rec.amount_total
+            rec.total_amount = rec.insurance_amount if (rec.is_insurance and rec.second_customer_id and rec.insurance_amount) else rec.amount_total
+            if rec.is_insurance:
+                if rec.second_customer_id and (not rec.insurance_amount or rec.insurance_amount == 0.0):
+                    rec.insurance_amount = rec.amount_total
+                if rec.excess_percentage and (not rec.excess_amount or rec.excess_amount == 0.0):
+                    rec.excess_amount = (rec.excess_percentage / 100.0) * rec.amount_total
+                if rec.betterment_percentage and (not rec.betterment_amount or rec.betterment_amount == 0.0):
+                    rec.betterment_amount = (rec.betterment_percentage / 100.0) * rec.amount_total
 
     def _organize_sections(self):
         categories = ['parts', 'consumables', 'repairs', 'paint', 'sundries', 'fittings']
@@ -956,22 +984,7 @@ class JobCard(models.Model):
         records = super().create(vals_list)
         records._organize_sections()
         for rec in records:
-            vals_to_write = {}
-            if rec.second_customer_id and not rec.insurance_amount and rec.amount_total:
-                vals_to_write['insurance_amount'] = rec.amount_total
-            if rec.excess_percentage and not rec.excess_amount and rec.amount_total:
-                vals_to_write['excess_amount'] = (rec.excess_percentage / 100.0) * rec.amount_total
-            if rec.betterment_percentage and not rec.betterment_amount and rec.amount_total:
-                vals_to_write['betterment_amount'] = (rec.betterment_percentage / 100.0) * rec.amount_total
-            if vals_to_write:
-                rec.write(vals_to_write)
-        return records
-
-    def write(self, vals):
-        res = super().write(vals)
-        self._organize_sections()
-        if not self.env.context.get('skip_financial_auto_write'):
-            for rec in self.with_context(skip_financial_auto_write=True):
+            if rec.is_insurance:
                 vals_to_write = {}
                 if rec.second_customer_id and not rec.insurance_amount and rec.amount_total:
                     vals_to_write['insurance_amount'] = rec.amount_total
@@ -981,6 +994,23 @@ class JobCard(models.Model):
                     vals_to_write['betterment_amount'] = (rec.betterment_percentage / 100.0) * rec.amount_total
                 if vals_to_write:
                     rec.write(vals_to_write)
+        return records
+
+    def write(self, vals):
+        res = super().write(vals)
+        self._organize_sections()
+        if not self.env.context.get('skip_financial_auto_write'):
+            for rec in self.with_context(skip_financial_auto_write=True):
+                if rec.is_insurance:
+                    vals_to_write = {}
+                    if rec.second_customer_id and not rec.insurance_amount and rec.amount_total:
+                        vals_to_write['insurance_amount'] = rec.amount_total
+                    if rec.excess_percentage and not rec.excess_amount and rec.amount_total:
+                        vals_to_write['excess_amount'] = (rec.excess_percentage / 100.0) * rec.amount_total
+                    if rec.betterment_percentage and not rec.betterment_amount and rec.amount_total:
+                        vals_to_write['betterment_amount'] = (rec.betterment_percentage / 100.0) * rec.amount_total
+                    if vals_to_write:
+                        rec.write(vals_to_write)
         return res
 
     def _build_so_lines_from_job(self, price_multiplier=1.0):
@@ -1011,26 +1041,27 @@ class JobCard(models.Model):
     def action_approve_job_card(self):
         for rec in self:
             vals_to_fix = {}
-            if not rec.excess_amount and rec.excess_percentage and rec.amount_total:
-                vals_to_fix['excess_amount'] = (rec.excess_percentage / 100.0) * rec.amount_total
-            if not rec.insurance_amount and rec.second_customer_id:
-                vals_to_fix['insurance_amount'] = rec.amount_total
-            if vals_to_fix:
-                rec.with_context(skip_financial_auto_write=True).write(vals_to_fix)
+            if rec.is_insurance:
+                if not rec.excess_amount and rec.excess_percentage and rec.amount_total:
+                    vals_to_fix['excess_amount'] = (rec.excess_percentage / 100.0) * rec.amount_total
+                if not rec.insurance_amount and rec.second_customer_id:
+                    vals_to_fix['insurance_amount'] = rec.amount_total
+                if vals_to_fix:
+                    rec.with_context(skip_financial_auto_write=True).write(vals_to_fix)
 
-            excess_amt = rec.excess_amount or vals_to_fix.get('excess_amount', 0.0)
-            # Soft excess warning: if insurance company is set but excess is 0
-            if rec.second_customer_id and not excess_amt and not rec.excess_warning_reason:
-                return {
-                    'type': 'ir.actions.act_window',
-                    'name': 'Excess Amount Warning',
-                    'res_model': 'job.card.excess.warning.wizard',
-                    'view_mode': 'form',
-                    'target': 'new',
-                    'context': {
-                        'default_job_card_id': rec.id,
+                excess_amt = rec.excess_amount or vals_to_fix.get('excess_amount', 0.0)
+                # Soft excess warning: if insurance is checked and excess is 0
+                if not excess_amt and not rec.excess_warning_reason:
+                    return {
+                        'type': 'ir.actions.act_window',
+                        'name': 'Excess Amount Warning',
+                        'res_model': 'job.card.excess.warning.wizard',
+                        'view_mode': 'form',
+                        'target': 'new',
+                        'context': {
+                            'default_job_card_id': rec.id,
+                        }
                     }
-                }
 
             rec.state = 'pending_inventory'
             if not rec.access_token:
@@ -1039,6 +1070,7 @@ class JobCard(models.Model):
             # Create Sales Orders if not already created
             if not rec.customer_sale_order_id:
                 has_insurance = bool(
+                    rec.is_insurance and
                     rec.second_customer_id and
                     rec.second_customer_id.partner_id
                 )
@@ -1111,41 +1143,16 @@ class JobCard(models.Model):
                         self.env['sale.order.line'].create(dict(line_vals, order_id=insurance_so.id))
                     insurance_so.action_confirm()
                 else:
-                    # No Insurance: single SO, customer pays all
-                    total_amount = rec.amount_total
-                    if enable_betterment:
-                        if betterment_policy == 'percentage':
-                            betterment_value = total_amount * (rec.betterment_percentage / 100.0)
-                        else:
-                            betterment_value = rec.betterment_amount
-                    else:
-                        betterment_value = 0.0
-
+                    # Cash / Customer-only: single SO for customer, full quote lines
                     sale_order = self.env['sale.order'].create({
                         'partner_id': rec.customer_id.partner_id.id,
                         'user_id': self.env.user.id,
                         'origin': rec.name,
+                        'note': f"Job Card {rec.name} (Cash Payment)",
                     })
                     rec.customer_sale_order_id = sale_order.id
-                    
-                    # Create Excess Line (which is 100% of the cost here)
-                    self.env['sale.order.line'].create({
-                        'order_id': sale_order.id,
-                        'product_id': excess_product.id,
-                        'name': "Job Card Total",
-                        'product_uom_qty': 1.0,
-                        'price_unit': total_amount,
-                    })
-                    
-                    # Create Betterment Line if > 0
-                    if enable_betterment and betterment_value > 0:
-                        self.env['sale.order.line'].create({
-                            'order_id': sale_order.id,
-                            'product_id': betterment_product.id,
-                            'name': betterment_product.name,
-                            'product_uom_qty': 1.0,
-                            'price_unit': betterment_value,
-                        })
+                    for line_vals in rec._build_so_lines_from_job(price_multiplier=1.0):
+                        self.env['sale.order.line'].create(dict(line_vals, order_id=sale_order.id))
                     sale_order.action_confirm()
             
             # Auto-create invoices if enabled
@@ -1220,7 +1227,7 @@ class JobCard(models.Model):
             elif self.customer_sale_order_id.invoice_ids:
                 self.customer_invoice_id = self.customer_sale_order_id.invoice_ids[0].id
 
-        if self.insurance_sale_order_id:
+        if self.is_insurance and self.insurance_sale_order_id:
             # Invoice insurance SO (if exists)
             if not self.insurance_sale_order_id.invoice_ids and self.insurance_sale_order_id.invoice_status in ('to invoice', 'no'):
                 insurance_invoices = self.insurance_sale_order_id._create_invoices()
@@ -1234,13 +1241,14 @@ class JobCard(models.Model):
             elif self.insurance_sale_order_id.invoice_ids:
                 self.insurance_invoice_id = self.insurance_sale_order_id.invoice_ids[0].id
 
-        self.invoice_created = bool(self.customer_invoice_id or self.insurance_invoice_id)
+        self.invoice_created = bool(self.customer_invoice_id or (self.is_insurance and self.insurance_invoice_id))
 
     def action_finalize_job_card(self):
-        if not self.second_customer_id:
-            raise UserError(_('Please add Insurance Company as Second Customer before finalizing.'))
-        if not self.excess_percentage and self.billing_policy_setting == 'percentage':
-            raise UserError(_('Please set the Excess percentage.'))
+        if self.is_insurance:
+            if not self.second_customer_id:
+                raise UserError(_('Please add Insurance Company as Second Customer before finalizing.'))
+            if not self.excess_percentage and self.billing_policy_setting == 'percentage' and not self.excess_warning_reason:
+                raise UserError(_('Please set the Excess percentage or provide a reason why excess is zero.'))
         if not self.all_inventory_issued:
             raise UserError(_('You cannot finalize the job until all parts have been issued or requisitioned.'))
         if self.consumables_line_ids and not self.all_consumables_issued:

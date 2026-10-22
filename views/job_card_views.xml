@@ -57,11 +57,25 @@
                         </button>
                     </div>
                     
+                    <div class="row mb-3 mt-2">
+                        <div class="col-12 d-flex align-items-center">
+                            <span class="fw-bold me-3 text-uppercase text-muted" style="letter-spacing: 0.5px;">Job Card Billing Type:</span>
+                            <div class="form-check form-check-inline me-4">
+                                <field name="is_insurance" widget="boolean_toggle" class="oe_inline me-1" readonly="state in ('completed', 'delivered')"/>
+                                <label for="is_insurance" class="form-check-label fw-bold text-primary">Insurance</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <field name="is_cash" widget="boolean_toggle" class="oe_inline me-1" readonly="state in ('completed', 'delivered')"/>
+                                <label for="is_cash" class="form-check-label fw-bold text-success">Cash</label>
+                            </div>
+                        </div>
+                    </div>
+
                     <group col="3">
                         <group string="Job Card Details">
                             <field name="name" readonly="1"/>
-                            <field name="order_number" required="not is_cash" readonly="state in ('approved', 'in_progress', 'requisition_started', 'completed', 'delivered')"/>
-                            <field name="claims_number" readonly="state in ('approved', 'in_progress', 'requisition_started', 'completed', 'delivered')"/>
+                            <field name="order_number" invisible="not is_insurance" required="is_insurance" readonly="state in ('approved', 'in_progress', 'requisition_started', 'completed', 'delivered')"/>
+                            <field name="claims_number" invisible="not is_insurance" readonly="state in ('approved', 'in_progress', 'requisition_started', 'completed', 'delivered')"/>
                             <field name="estimate_id" readonly="1"/>
                             <field name="customer_id" readonly="state in ('completed', 'delivered')"/>
                             <field name="vehicle_display" readonly="1"/>
@@ -75,48 +89,57 @@
                             <field name="betterment_billing_policy_setting" invisible="1"/>
                             <field name="enable_betterment_setting" invisible="1"/>
                             <field name="all_inventory_issued" invisible="1"/>
-                            <field name="second_customer_id" required="1" readonly="state in ('completed', 'delivered')"/>
-                            <field name="authorization_type" widget="radio" options="{'horizontal': True}" invisible="not second_customer_id"/>
+
+                            <!-- Cash Billing Specific Fields -->
+                            <field name="customer_id" string="Customer" readonly="1" invisible="not is_cash"/>
+                            <field name="cash_receipt_ref" string="Receipt No." invisible="not is_cash" readonly="state in ('completed', 'delivered')"/>
+                            <field name="receipt_filename" invisible="1"/>
+                            <field name="receipt_attachment" filename="receipt_filename" string="Receipt" invisible="not is_cash" readonly="state in ('completed', 'delivered')"/>
+
+                            <!-- Insurance Billing Specific Fields -->
+                            <field name="second_customer_id" required="is_insurance" invisible="not is_insurance" readonly="state in ('completed', 'delivered')"/>
+                            <field name="authorization_type" widget="radio" options="{'horizontal': True}" invisible="not is_insurance or not second_customer_id"/>
                             <field name="authorization_letter_filename" invisible="1"/>
-                            <field name="authorization_letter" filename="authorization_letter_filename" invisible="not second_customer_id or authorization_type != 'file'"/>
-                            <field name="authorization_link" widget="url" invisible="not second_customer_id or authorization_type != 'link'"/>
-                            <!-- Financial split fields with badges for % and AMT -->
-                            <label for="excess_percentage" string="Excess Percentage"/>
-                            <div class="o_row">
+                            <field name="authorization_letter" filename="authorization_letter_filename" invisible="not is_insurance or not second_customer_id or authorization_type != 'file'"/>
+                            <field name="authorization_link" widget="url" invisible="not is_insurance or not second_customer_id or authorization_type != 'link'"/>
+
+                            <!-- Financial split fields with badges for % and AMT (Insurance Only) -->
+                            <label for="excess_percentage" string="Excess Percentage" invisible="not is_insurance"/>
+                            <div class="o_row" invisible="not is_insurance">
                                 <span class="badge rounded-pill text-bg-warning px-2 py-1 fw-bold me-1" style="color: #000000 !important;">EXCESS %</span>
                                 <field name="excess_percentage" class="oe_inline fw-bold" readonly="state in ('completed', 'delivered')"/>
                                 <span class="text-muted fw-bold ms-1">%</span>
                             </div>
 
-                            <label for="excess_amount" string="Excess Amount"/>
-                            <div class="o_row">
+                            <label for="excess_amount" string="Excess Amount" invisible="not is_insurance"/>
+                            <div class="o_row" invisible="not is_insurance">
                                 <span class="badge rounded-pill text-bg-success px-2 py-1 fw-bold me-1">EXCESS AMT ($)</span>
                                 <field name="excess_amount" class="oe_inline fw-bold" readonly="state in ('completed', 'delivered')"/>
                             </div>
 
-                            <!-- Betterment fields: only visible when enabled -->
-                            <label for="betterment_percentage" string="Betterment Percentage" invisible="not enable_betterment_setting"/>
-                            <div class="o_row" invisible="not enable_betterment_setting">
+                            <!-- Betterment fields: only visible when enabled and insurance -->
+                            <label for="betterment_percentage" string="Betterment Percentage" invisible="not is_insurance or not enable_betterment_setting"/>
+                            <div class="o_row" invisible="not is_insurance or not enable_betterment_setting">
                                 <span class="badge rounded-pill text-bg-info px-2 py-1 fw-bold me-1" style="color: #000000 !important;">BETTERMENT %</span>
                                 <field name="betterment_percentage" class="oe_inline fw-bold" readonly="state in ('completed', 'delivered')"/>
                                 <span class="text-muted fw-bold ms-1">%</span>
                             </div>
 
-                            <label for="betterment_amount" string="Betterment Amount" invisible="not enable_betterment_setting"/>
-                            <div class="o_row" invisible="not enable_betterment_setting">
+                            <label for="betterment_amount" string="Betterment Amount" invisible="not is_insurance or not enable_betterment_setting"/>
+                            <div class="o_row" invisible="not is_insurance or not enable_betterment_setting">
                                 <span class="badge rounded-pill text-bg-success px-2 py-1 fw-bold me-1">BETTERMENT AMT ($)</span>
                                 <field name="betterment_amount" class="oe_inline fw-bold" readonly="state in ('completed', 'delivered')"/>
                             </div>
 
                             <!-- Insurance fields: editable amount, computed percentage -->
-                            <label for="insurance_amount" string="Insurance Amount" invisible="not second_customer_id"/>
-                            <div class="o_row" invisible="not second_customer_id">
+                            <label for="insurance_amount" string="Insurance Amount" invisible="not is_insurance or not second_customer_id"/>
+                            <div class="o_row" invisible="not is_insurance or not second_customer_id">
                                 <span class="badge rounded-pill text-bg-primary px-2 py-1 fw-bold me-1">INSURANCE AMT ($)</span>
                                 <field name="insurance_amount" class="oe_inline fw-bold" readonly="state in ('completed', 'delivered')"/>
                             </div>
 
-                            <label for="insurance_percentage" string="Insurance Percentage" invisible="not second_customer_id"/>
-                            <div class="o_row" invisible="not second_customer_id">
+                            <label for="insurance_percentage" string="Insurance Percentage" invisible="not is_insurance or not second_customer_id"/>
+                            <div class="o_row" invisible="not is_insurance or not second_customer_id">
                                 <span class="badge rounded-pill text-bg-secondary px-2 py-1 fw-bold me-1">INSURANCE %</span>
                                 <field name="insurance_percentage" class="oe_inline fw-bold" readonly="1"/>
                                 <span class="text-muted fw-bold ms-1">%</span>
@@ -126,19 +149,15 @@
                             <field name="customer_sale_order_id" readonly="1" string="Customer Order"
                                    invisible="not customer_sale_order_id"/>
                             <field name="insurance_sale_order_id" readonly="1" string="Insurance Order"
-                                   invisible="not insurance_sale_order_id"/>
+                                   invisible="not is_insurance or not insurance_sale_order_id"/>
                             <field name="customer_invoice_id" readonly="1" string="Customer Invoice"
                                    invisible="not customer_invoice_id"/>
                             <field name="insurance_invoice_id" readonly="1" string="Insurance Invoice"
-                                   invisible="not insurance_invoice_id"/>
+                                   invisible="not is_insurance or not insurance_invoice_id"/>
                         </group>
                         <group string="Team">
                             <field name="technician_ids" widget="many2many_tags" readonly="state in ('completed', 'delivered')"/>
                             <field name="supervisor_ids" widget="many2many_tags" readonly="state in ('completed', 'delivered')"/>
-                        </group>
-                        <group string="Payment &amp; Finalization">
-                            <field name="is_cash" readonly="state in ('completed', 'delivered')"/>
-                            <field name="cash_receipt_ref" invisible="not is_cash" readonly="state in ('completed', 'delivered')"/>
                         </group>
                     </group>
                     <notebook>
@@ -340,6 +359,7 @@
                 <field name="cash_receipt_ref"/>
                 
                 <separator/>
+                <filter string="Insurance Jobs" name="filter_insurance" domain="[('is_insurance', '=', True)]"/>
                 <filter string="Cash Payments" name="filter_cash" domain="[('is_cash', '=', True)]"/>
                 <filter string="Has Excess" name="filter_excess" domain="['|', ('excess_amount', '>', 0), ('excess_percentage', '>', 0)]"/>
                 <filter string="Has Betterment" name="filter_betterment" domain="['|', ('betterment_amount', '>', 0), ('betterment_percentage', '>', 0)]"/>

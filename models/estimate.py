@@ -682,10 +682,13 @@ class Estimate(models.Model):
             raise UserError(_('Job card already opened for this estimate.'))
 
         today = fields.Date.today()
+        is_insurance = bool(self.insurance_company_id)
         job_card = self.env['job.card'].with_context(skip_default_lines=True, opening_from_estimate=True).create({
             'estimate_id': self.id,
             'customer_id': self.customer_id.id,
-            'second_customer_id': self.insurance_company_id.id if self.insurance_company_id else False,
+            'is_insurance': is_insurance,
+            'is_cash': not is_insurance,
+            'second_customer_id': self.insurance_company_id.id if is_insurance else False,
             'vehicle_id': self.vehicle_id.id,
             'start_date': today,
         })
@@ -708,24 +711,25 @@ class Estimate(models.Model):
                 line_vals['tax_ids'] = [(6, 0, line.tax_ids.ids)]
             self.env['job.card.line'].create(line_vals)
             
-        total_amt = self.amount_total or job_card.amount_total
-        excess_amount = self.excess_amount
-        if not excess_amount and self.excess_percentage and total_amt:
-            excess_amount = (self.excess_percentage / 100.0) * total_amt
+        if is_insurance:
+            total_amt = self.amount_total or job_card.amount_total
+            excess_amount = self.excess_amount
+            if not excess_amount and self.excess_percentage and total_amt:
+                excess_amount = (self.excess_percentage / 100.0) * total_amt
 
-        betterment_amount = self.betterment_amount
-        if not betterment_amount and self.betterment_percentage and total_amt:
-            betterment_amount = (self.betterment_percentage / 100.0) * total_amt
+            betterment_amount = self.betterment_amount
+            if not betterment_amount and self.betterment_percentage and total_amt:
+                betterment_amount = (self.betterment_percentage / 100.0) * total_amt
 
-        insurance_amount = self.insurance_amount or (total_amt if self.insurance_company_id else 0.0)
+            insurance_amount = self.insurance_amount or (total_amt if self.insurance_company_id else 0.0)
 
-        job_card.with_context(skip_financial_auto_write=True, opening_from_estimate=True).write({
-            'excess_percentage': self.excess_percentage,
-            'excess_amount': excess_amount,
-            'betterment_percentage': self.betterment_percentage,
-            'betterment_amount': betterment_amount,
-            'insurance_amount': insurance_amount,
-        })
+            job_card.with_context(skip_financial_auto_write=True, opening_from_estimate=True).write({
+                'excess_percentage': self.excess_percentage,
+                'excess_amount': excess_amount,
+                'betterment_percentage': self.betterment_percentage,
+                'betterment_amount': betterment_amount,
+                'insurance_amount': insurance_amount,
+            })
             
         self.write({
             'has_job_card': True,
