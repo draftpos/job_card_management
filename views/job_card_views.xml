@@ -24,8 +24,8 @@
                     <!-- In Progress state buttons -->
                     <button name="action_finalize_job_card" string="Finalize Job Card" type="object" invisible="state not in ['in_progress']"/>
                     
-                    <!-- Completed/Delivered state buttons - REOPEN / EDIT -->
-                    <button name="action_reopen" string="Reopen / Edit" type="object" icon="fa-undo" class="btn-warning" invisible="state == 'draft' and not is_billing_locked" confirm="Are you sure you want to reopen this job card for editing?" groups="job_card_management.group_can_reopen_job_card"/>
+                    <!-- REOPEN / EDIT button always available -->
+                    <button name="action_reopen" string="Reopen / Edit" type="object" icon="fa-undo" class="btn-warning" confirm="Are you sure you want to reopen / edit this job card?" groups="job_card_management.group_can_reopen_job_card"/>
                     
                     <!-- Portal Preview button -->
                     <button name="action_preview_portal" string="Preview" type="object" class="btn-secondary"/>
