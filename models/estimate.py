@@ -731,6 +731,10 @@ class Estimate(models.Model):
                 'betterment_amount': betterment_amount,
                 'insurance_amount': insurance_amount,
             })
+        else:
+            job_card.with_context(skip_financial_auto_write=True, opening_from_estimate=True).write({
+                'cash_amount': self.amount_total or job_card.amount_total,
+            })
             
         self.write({
             'has_job_card': True,

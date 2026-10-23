@@ -24,8 +24,8 @@
                     <!-- In Progress state buttons -->
                     <button name="action_finalize_job_card" string="Finalize Job Card" type="object" invisible="state not in ['in_progress']"/>
                     
-                    <!-- Completed/Delivered state buttons - REOPEN -->
-                    <button name="action_reopen" string="Reopen / Edit" type="object" icon="fa-undo" class="btn-warning" invisible="state == 'draft'" confirm="Are you sure you want to reopen this job card? It will be moved back to draft for editing." groups="job_card_management.group_can_reopen_job_card"/>
+                    <!-- Completed/Delivered state buttons - REOPEN / EDIT -->
+                    <button name="action_reopen" string="Reopen / Edit" type="object" icon="fa-undo" class="btn-warning" invisible="state == 'draft' and not is_billing_locked" confirm="Are you sure you want to reopen this job card for editing?" groups="job_card_management.group_can_reopen_job_card"/>
                     
                     <!-- Portal Preview button -->
                     <button name="action_preview_portal" string="Preview" type="object" class="btn-secondary"/>
@@ -59,10 +59,11 @@
                     
                     <field name="is_insurance" invisible="1"/>
                     <field name="is_cash" invisible="1"/>
+                    <field name="is_billing_locked" invisible="1"/>
                     <div class="row mb-3 mt-2">
                         <div class="col-12 d-flex align-items-center">
                             <span class="fw-bold me-3 text-uppercase text-muted" style="letter-spacing: 0.5px;">Job Card Billing Type:</span>
-                            <field name="billing_type" widget="radio" options="{'horizontal': true}" class="oe_inline fw-bold" readonly="state in ('completed', 'delivered')"/>
+                            <field name="billing_type" widget="radio" options="{'horizontal': true}" class="oe_inline fw-bold" readonly="is_billing_locked or state in ('completed', 'delivered')"/>
                         </div>
                     </div>
 
@@ -87,6 +88,11 @@
 
                             <!-- Cash Billing Specific Fields -->
                             <field name="customer_id" string="Customer" readonly="1" invisible="not is_cash"/>
+                            <label for="cash_amount" string="Cash Amount" invisible="not is_cash"/>
+                            <div class="o_row" invisible="not is_cash">
+                                <span class="badge rounded-pill text-bg-success px-2 py-1 fw-bold me-1">CASH AMT ($)</span>
+                                <field name="cash_amount" class="oe_inline fw-bold" readonly="state in ('completed', 'delivered')"/>
+                            </div>
                             <field name="cash_receipt_ref" string="Receipt No." invisible="not is_cash" readonly="state in ('completed', 'delivered')"/>
                             <field name="receipt_filename" invisible="1"/>
                             <field name="receipt_attachment" filename="receipt_filename" string="Receipt" invisible="not is_cash" readonly="state in ('completed', 'delivered')"/>

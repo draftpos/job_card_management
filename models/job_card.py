@@ -49,6 +49,18 @@ class JobCard(models.Model):
         default='insurance',
         required=True,
     )
+    is_billing_locked = fields.Boolean(
+        string='Billing Details Locked',
+        compute='_compute_is_billing_locked',
+        store=True,
+        help='Locks billing type and details once configured, until reopened/unlocked',
+    )
+    cash_amount = fields.Float(
+        string='Cash AMT',
+        compute='_compute_cash_amount',
+        store=True,
+        readonly=False,
+    )
     cash_receipt_ref = fields.Char(string='Receipt No.')
     receipt_attachment = fields.Binary(string='Receipt', attachment=True)
     receipt_filename = fields.Char(string='Receipt Filename')
@@ -783,21 +795,43 @@ class JobCard(models.Model):
             'target': 'current',
         }
 
-# Workflow actions with validations - function to reopen job card added at the end
     def action_reopen(self):
-        """Reopen a completed or delivered job card back to draft"""
-        # Check permission
+        """Reopen / edit a job card to allow changing details"""
         if not self.env.user.has_group('job_card_management.group_can_reopen_job_card'):
             raise UserError(_('You do not have permission to reopen job cards. Please contact your administrator.'))
         
         for rec in self:
-            if rec.state not in ('completed', 'delivered'):
-                raise UserError(_('Only completed or delivered job cards can be reopened.'))
             if rec.estimate_id and rec.estimate_id.sale_order_id:
                 sale_order = rec.estimate_id.sale_order_id
                 if sale_order.state not in ('cancel', 'done'):
                     sale_order.action_cancel()
+            rec.is_billing_unlocked = True
             rec.state = 'draft'
+
+    is_billing_unlocked = fields.Boolean(string='Billing Unlocked for Edit', default=False)
+
+    @api.depends('billing_type', 'is_cash', 'is_insurance', 'cash_receipt_ref', 'receipt_attachment', 'second_customer_id', 'is_billing_unlocked', 'state')
+    def _compute_is_billing_locked(self):
+        for rec in self:
+            if rec.state in ('completed', 'delivered'):
+                rec.is_billing_locked = True
+            elif rec.is_billing_unlocked:
+                rec.is_billing_locked = False
+            else:
+                if rec.billing_type == 'cash':
+                    rec.is_billing_locked = bool(rec.cash_receipt_ref or rec.receipt_attachment)
+                elif rec.billing_type == 'insurance':
+                    rec.is_billing_locked = bool(rec.second_customer_id)
+                else:
+                    rec.is_billing_locked = False
+
+    @api.depends('amount_total', 'is_cash')
+    def _compute_cash_amount(self):
+        for rec in self:
+            if rec.is_cash:
+                rec.cash_amount = rec.amount_total
+            else:
+                rec.cash_amount = 0.0
 
     @api.onchange('second_customer_id')
     def _onchange_second_customer_id(self):
@@ -860,6 +894,7 @@ class JobCard(models.Model):
         elif self.billing_type == 'cash':
             self.is_insurance = False
             self.is_cash = True
+            self.cash_amount = self.amount_total
             self.second_customer_id = False
             self.excess_percentage = 0.0
             self.excess_amount = 0.0
@@ -886,6 +921,7 @@ class JobCard(models.Model):
         if self.is_cash:
             self.is_insurance = False
             self.billing_type = 'cash'
+            self.cash_amount = self.amount_total
             self.second_customer_id = False
             self.excess_percentage = 0.0
             self.excess_amount = 0.0
@@ -976,6 +1012,9 @@ class JobCard(models.Model):
                     rec.excess_amount = (rec.excess_percentage / 100.0) * rec.amount_total
                 if rec.betterment_percentage and (not rec.betterment_amount or rec.betterment_amount == 0.0):
                     rec.betterment_amount = (rec.betterment_percentage / 100.0) * rec.amount_total
+            elif rec.is_cash:
+                if not rec.cash_amount or rec.cash_amount == 0.0:
+                    rec.cash_amount = rec.amount_total
 
     def _organize_sections(self):
         categories = ['parts', 'consumables', 'repairs', 'paint', 'sundries', 'fittings']
