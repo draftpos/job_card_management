@@ -51,9 +51,9 @@ class JobCard(models.Model):
     )
     is_billing_locked = fields.Boolean(
         string='Billing Details Locked',
-        compute='_compute_is_billing_locked',
-        store=True,
-        help='Locks billing type and details once configured, until reopened/unlocked',
+        default=True,
+        copy=False,
+        help='Locks billing type after creation/save until Edit button is clicked',
     )
     cash_amount = fields.Float(
         string='Cash AMT',
@@ -805,25 +805,13 @@ class JobCard(models.Model):
                 sale_order = rec.estimate_id.sale_order_id
                 if sale_order.state not in ('cancel', 'done'):
                     sale_order.action_cancel()
-            rec.is_billing_unlocked = True
+            rec.is_billing_locked = False
             rec.state = 'draft'
 
-    is_billing_unlocked = fields.Boolean(string='Billing Unlocked for Edit', default=False)
-
-    @api.depends('billing_type', 'is_cash', 'is_insurance', 'cash_receipt_ref', 'receipt_attachment', 'second_customer_id', 'is_billing_unlocked', 'state')
-    def _compute_is_billing_locked(self):
+    def action_unlock_billing(self):
+        """Unlock billing type radio selection for editing"""
         for rec in self:
-            if rec.state in ('completed', 'delivered'):
-                rec.is_billing_locked = True
-            elif rec.is_billing_unlocked:
-                rec.is_billing_locked = False
-            else:
-                if rec.billing_type == 'cash':
-                    rec.is_billing_locked = bool(rec.cash_receipt_ref or rec.receipt_attachment)
-                elif rec.billing_type == 'insurance':
-                    rec.is_billing_locked = bool(rec.second_customer_id)
-                else:
-                    rec.is_billing_locked = False
+            rec.is_billing_locked = False
 
     @api.depends('amount_total', 'is_cash')
     def _compute_cash_amount(self):

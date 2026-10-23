@@ -63,7 +63,8 @@
                     <div class="row mb-3 mt-2">
                         <div class="col-12 d-flex align-items-center">
                             <span class="fw-bold me-3 text-uppercase text-muted" style="letter-spacing: 0.5px;">Job Card Billing Type:</span>
-                            <field name="billing_type" widget="radio" options="{'horizontal': true}" class="oe_inline fw-bold" readonly="is_billing_locked or state in ('completed', 'delivered')"/>
+                            <field name="billing_type" widget="radio" options="{'horizontal': true}" class="oe_inline fw-bold me-3" readonly="is_billing_locked or state in ('completed', 'delivered')"/>
+                            <button name="action_unlock_billing" string="Change Billing Type" type="object" icon="fa-pencil" class="btn btn-sm btn-outline-warning" invisible="not is_billing_locked or state in ('completed', 'delivered')"/>
                         </div>
                     </div>
 
