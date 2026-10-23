@@ -805,8 +805,10 @@ class JobCard(models.Model):
                 sale_order = rec.estimate_id.sale_order_id
                 if sale_order.state not in ('cancel', 'done'):
                     sale_order.action_cancel()
-            rec.is_billing_locked = False
-            rec.state = 'draft'
+            rec.with_context(skip_billing_lock=True).write({
+                'is_billing_locked': False,
+                'state': 'draft',
+            })
 
     def action_unlock_billing(self):
         """Unlock billing type radio selection for editing"""
@@ -1081,14 +1083,16 @@ class JobCard(models.Model):
             vals['billing_type'] = 'insurance' if vals['is_insurance'] else 'cash'
 
         if 'is_billing_locked' not in vals and not self.env.context.get('skip_billing_lock'):
-            # When saved/modified, lock billing if required details are filled
+            # Only relock when user saves with billing fields changed or if it was already locked
             for rec in self:
                 b_type = vals.get('billing_type', rec.billing_type)
                 sec_cust = vals.get('second_customer_id', rec.second_customer_id.id if rec.second_customer_id else False)
                 cash_ref = vals.get('cash_receipt_ref', rec.cash_receipt_ref)
                 cash_att = vals.get('receipt_attachment', rec.receipt_attachment)
-                if (b_type == 'insurance' and sec_cust) or (b_type == 'cash' and (cash_ref or cash_att)):
-                    vals['is_billing_locked'] = True
+                # If editing billing type or saving customer details, lock upon save
+                if ('billing_type' in vals or 'second_customer_id' in vals or 'cash_receipt_ref' in vals or 'receipt_attachment' in vals or rec.is_billing_locked):
+                    if (b_type == 'insurance' and sec_cust) or (b_type == 'cash' and (cash_ref or cash_att)):
+                        vals['is_billing_locked'] = True
 
         res = super().write(vals)
         self._organize_sections()
