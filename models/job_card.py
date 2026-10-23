@@ -1083,16 +1083,7 @@ class JobCard(models.Model):
             vals['billing_type'] = 'insurance' if vals['is_insurance'] else 'cash'
 
         if 'is_billing_locked' not in vals and not self.env.context.get('skip_billing_lock'):
-            # Only relock when user saves with billing fields changed or if it was already locked
-            for rec in self:
-                b_type = vals.get('billing_type', rec.billing_type)
-                sec_cust = vals.get('second_customer_id', rec.second_customer_id.id if rec.second_customer_id else False)
-                cash_ref = vals.get('cash_receipt_ref', rec.cash_receipt_ref)
-                cash_att = vals.get('receipt_attachment', rec.receipt_attachment)
-                # If editing billing type or saving customer details, lock upon save
-                if ('billing_type' in vals or 'second_customer_id' in vals or 'cash_receipt_ref' in vals or 'receipt_attachment' in vals or rec.is_billing_locked):
-                    if (b_type == 'insurance' and sec_cust) or (b_type == 'cash' and (cash_ref or cash_att)):
-                        vals['is_billing_locked'] = True
+            vals['is_billing_locked'] = True
 
         res = super().write(vals)
         self._organize_sections()
