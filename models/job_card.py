@@ -1080,6 +1080,16 @@ class JobCard(models.Model):
             vals['is_cash'] = not vals['is_insurance']
             vals['billing_type'] = 'insurance' if vals['is_insurance'] else 'cash'
 
+        if 'is_billing_locked' not in vals and not self.env.context.get('skip_billing_lock'):
+            # When saved/modified, lock billing if required details are filled
+            for rec in self:
+                b_type = vals.get('billing_type', rec.billing_type)
+                sec_cust = vals.get('second_customer_id', rec.second_customer_id.id if rec.second_customer_id else False)
+                cash_ref = vals.get('cash_receipt_ref', rec.cash_receipt_ref)
+                cash_att = vals.get('receipt_attachment', rec.receipt_attachment)
+                if (b_type == 'insurance' and sec_cust) or (b_type == 'cash' and (cash_ref or cash_att)):
+                    vals['is_billing_locked'] = True
+
         res = super().write(vals)
         self._organize_sections()
         if not self.env.context.get('skip_financial_auto_write'):
