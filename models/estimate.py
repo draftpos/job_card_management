@@ -53,6 +53,43 @@ class Estimate(models.Model):
         copy=False,
     )
     customer_id = fields.Many2one('customer', string='Customer', required=True)
+    company_id = fields.Many2one('res.company', string='Company', default=lambda self: self.env.company, required=True)
+    company_currency_id = fields.Many2one('res.currency', string='Company Currency', related='company_id.currency_id', readonly=True)
+    currency_id = fields.Many2one('res.currency', string='Currency', default=lambda self: self.env.company.currency_id, required=True, tracking=True)
+    currency_rate = fields.Float(string='Exchange Rate', compute='_compute_currency_rate', store=True, readonly=False, digits=(12, 6), help='Exchange rate from company currency to this currency.')
+
+    @api.depends('currency_id', 'company_id')
+    def _compute_currency_rate(self):
+        for rec in self:
+            company = rec.company_id or self.env.company
+            date = rec.create_date or fields.Date.context_today(rec)
+            if rec.currency_id and company.currency_id:
+                rec.currency_rate = self.env['res.currency']._get_conversion_rate(
+                    from_currency=company.currency_id,
+                    to_currency=rec.currency_id,
+                    company=company,
+                    date=date,
+                )
+            else:
+                rec.currency_rate = 1.0
+
+    @api.onchange('currency_id')
+    def _onchange_currency_id(self):
+        if self._origin.currency_id and self.currency_id and self._origin.currency_id != self.currency_id:
+            old_curr = self._origin.currency_id
+            new_curr = self.currency_id
+            company = self.company_id or self.env.company
+            date = fields.Date.today()
+            all_lines = self.estimate_lines | self.parts_line_ids | self.consumables_line_ids | self.repairs_line_ids | self.paint_line_ids | self.sundries_line_ids | self.fittings_line_ids
+            for line in all_lines.filtered(lambda l: not l.display_type and l.unit_price):
+                line.unit_price = old_curr._convert(line.unit_price, new_curr, company, date, round=False)
+            if self.excess_amount:
+                self.excess_amount = old_curr._convert(self.excess_amount, new_curr, company, date, round=True)
+            if self.betterment_amount:
+                self.betterment_amount = old_curr._convert(self.betterment_amount, new_curr, company, date, round=True)
+            if self.insurance_amount:
+                self.insurance_amount = old_curr._convert(self.insurance_amount, new_curr, company, date, round=True)
+            self._compute_totals()
     insurance_company_id = fields.Many2one(
         'customer',
         string='Insurance Company',
@@ -70,13 +107,13 @@ class Estimate(models.Model):
         store=True,
         help='Percentage of the quotation covered by insurance.'
     )
-    excess_amount = fields.Float(
+    excess_amount = fields.Monetary(currency_field='currency_id',
         string='Excess AMT',
         compute='_compute_excess_amount',
         store=True,
         readonly=False,
     )
-    insurance_amount = fields.Float(
+    insurance_amount = fields.Monetary(currency_field='currency_id',
         string='Insurance AMT',
         compute='_compute_insurance_amount',
         store=True,
@@ -92,7 +129,7 @@ class Estimate(models.Model):
     authorization_link = fields.Char(string='Authorization Link')
 
     betterment_percentage = fields.Float(string='Betterment (%)', default=0.0)
-    betterment_amount = fields.Float(
+    betterment_amount = fields.Monetary(currency_field='currency_id',
         string='Betterment AMT',
         compute='_compute_betterment_amount',
         store=True,
@@ -430,9 +467,9 @@ class Estimate(models.Model):
                     rec.write(vals_to_write)
         return res
 
-    amount_untaxed = fields.Float(string='Total Excl', compute='_compute_totals', store=True)
-    amount_tax = fields.Float(string='Total Tax', compute='_compute_totals', store=True)
-    amount_total = fields.Float(string='Total Incl', compute='_compute_totals', store=True)
+    amount_untaxed = fields.Monetary(string='Total Excl', compute='_compute_totals', store=True, currency_field='currency_id')
+    amount_tax = fields.Monetary(string='Total Tax', compute='_compute_totals', store=True, currency_field='currency_id')
+    amount_total = fields.Monetary(string='Total Incl', compute='_compute_totals', store=True, currency_field='currency_id')
 
     def _job_card_form_action_xmlid(self):
         return 'job_card_management.action_estimate'
@@ -692,6 +729,9 @@ class Estimate(models.Model):
             'second_customer_id': self.insurance_company_id.id if is_insurance else False,
             'vehicle_id': self.vehicle_id.id,
             'start_date': today,
+            'company_id': self.company_id.id,
+            'currency_id': self.currency_id.id,
+            'currency_rate': self.currency_rate,
         })
         for line in self.estimate_lines:
             line_vals = {
@@ -864,7 +904,24 @@ class EstimateLine(models.Model):
         default=lambda self: self.env.ref('uom.product_uom_unit', raise_if_not_found=False).id,
     )
     quantity = fields.Float(string='Quantity', default=1.0)
-    unit_price = fields.Float(string='Unit Price')
+    currency_id = fields.Many2one(
+        'res.currency',
+        string='Currency',
+        compute='_compute_currency_id',
+        store=True,
+        readonly=True,
+    )
+    unit_price = fields.Monetary(string='Unit Price', currency_field='currency_id')
+
+    @api.depends('estimate_id.currency_id', 'parts_estimate_id.currency_id', 'consumables_estimate_id.currency_id',
+                 'repairs_estimate_id.currency_id', 'paint_estimate_id.currency_id', 'sundries_estimate_id.currency_id',
+                 'fittings_estimate_id.currency_id')
+    def _compute_currency_id(self):
+        for line in self:
+            parent = (line.estimate_id or line.parts_estimate_id or line.consumables_estimate_id or
+                      line.repairs_estimate_id or line.paint_estimate_id or line.sundries_estimate_id or
+                      line.fittings_estimate_id)
+            line.currency_id = parent.currency_id if parent else self.env.company.currency_id
     tax_ids = fields.Many2many('account.tax', string='Taxes')
     discount = fields.Float(string='Discount (%)', default=0.0)
 
@@ -879,7 +936,16 @@ class EstimateLine(models.Model):
     def _onchange_product_id(self):
         if self.product_id:
             self.name = self.product_id.display_name or self.product_id.name
-            self.unit_price = self.product_id.lst_price
+            parent = (self.estimate_id or self.parts_estimate_id or self.consumables_estimate_id or
+                      self.repairs_estimate_id or self.paint_estimate_id or self.sundries_estimate_id or
+                      self.fittings_estimate_id)
+            company = (parent and parent.company_id) or self.env.company
+            from_curr = company.currency_id
+            to_curr = (parent and parent.currency_id) or from_curr
+            price = self.product_id.lst_price
+            if from_curr and to_curr and from_curr != to_curr:
+                price = from_curr._convert(price, to_curr, company, fields.Date.today(), round=False)
+            self.unit_price = price
             if self.product_id.uom_id:
                 self.product_uom_id = self.product_id.uom_id
             self.tax_ids = self.product_id.taxes_id
@@ -918,9 +984,9 @@ class EstimateLine(models.Model):
                     line.price_total = subtotal
                     line.tax_amount = 0
 
-    price_subtotal = fields.Float(string='Subtotal', compute='_compute_amount', store=True)
-    tax_amount = fields.Float(string='Tax', compute='_compute_amount', store=True)
-    price_total = fields.Float(string='Amount', compute='_compute_amount', store=True)
+    price_subtotal = fields.Monetary(string='Subtotal', compute='_compute_amount', store=True, currency_field='currency_id')
+    tax_amount = fields.Monetary(string='Tax', compute='_compute_amount', store=True, currency_field='currency_id')
+    price_total = fields.Monetary(string='Amount', compute='_compute_amount', store=True, currency_field='currency_id')
 
 
 class EstimatePortal(CustomerPortal):

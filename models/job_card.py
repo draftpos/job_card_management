@@ -38,6 +38,60 @@ class JobCard(models.Model):
     )
     estimate_id = fields.Many2one('estimate', string='Estimate', required=True, readonly=True)
     customer_id = fields.Many2one('customer', string='First Customer', required=True)
+    company_id = fields.Many2one('res.company', string='Company', default=lambda self: self.env.company, required=True)
+    company_currency_id = fields.Many2one('res.currency', string='Company Currency', related='company_id.currency_id', readonly=True)
+    currency_id = fields.Many2one('res.currency', string='Currency', default=lambda self: self.env.company.currency_id, required=True, tracking=True)
+    currency_rate = fields.Float(string='Exchange Rate', compute='_compute_currency_rate', store=True, readonly=False, digits=(12, 6), help='Exchange rate from company currency to this currency.')
+
+    @api.depends('currency_id', 'company_id')
+    def _compute_currency_rate(self):
+        for rec in self:
+            company = rec.company_id or self.env.company
+            date = rec.create_date or fields.Date.context_today(rec)
+            if rec.currency_id and company.currency_id:
+                rec.currency_rate = self.env['res.currency']._get_conversion_rate(
+                    from_currency=company.currency_id,
+                    to_currency=rec.currency_id,
+                    company=company,
+                    date=date,
+                )
+            else:
+                rec.currency_rate = 1.0
+
+    @api.onchange('currency_id')
+    def _onchange_currency_id(self):
+        if self._origin.currency_id and self.currency_id and self._origin.currency_id != self.currency_id:
+            old_curr = self._origin.currency_id
+            new_curr = self.currency_id
+            company = self.company_id or self.env.company
+            date = fields.Date.today()
+            all_lines = self.job_card_lines | self.parts_line_ids | self.consumables_line_ids | self.repairs_line_ids | self.paint_line_ids | self.sundries_line_ids | self.fittings_line_ids
+            for line in all_lines.filtered(lambda l: not l.display_type and l.unit_price):
+                line.unit_price = old_curr._convert(line.unit_price, new_curr, company, date, round=False)
+            if self.excess_amount:
+                self.excess_amount = old_curr._convert(self.excess_amount, new_curr, company, date, round=True)
+            if self.betterment_amount:
+                self.betterment_amount = old_curr._convert(self.betterment_amount, new_curr, company, date, round=True)
+            if self.insurance_amount:
+                self.insurance_amount = old_curr._convert(self.insurance_amount, new_curr, company, date, round=True)
+            if self.cash_amount:
+                self.cash_amount = old_curr._convert(self.cash_amount, new_curr, company, date, round=True)
+            self._compute_total()
+
+    def _get_pricelist_for_currency(self, currency, company=None):
+        company = company or self.company_id or self.env.company
+        Pricelist = self.env['product.pricelist']
+        pricelist = Pricelist.search([
+            ('currency_id', '=', currency.id),
+            ('company_id', 'in', (company.id, False))
+        ], limit=1)
+        if not pricelist:
+            pricelist = Pricelist.sudo().create({
+                'name': f"{currency.name} Pricelist",
+                'currency_id': currency.id,
+                'company_id': company.id,
+            })
+        return pricelist
     second_customer_id = fields.Many2one('customer', string='Insurance Company', help='Added at final stage')
     order_number = fields.Char(string='Order NO:')
     claims_number = fields.Char(string='Claims NO:')
@@ -55,7 +109,7 @@ class JobCard(models.Model):
         copy=False,
         help='Locks billing type after creation/save until Edit button is clicked',
     )
-    cash_amount = fields.Float(
+    cash_amount = fields.Monetary(currency_field='currency_id',
         string='Cash AMT',
         compute='_compute_cash_amount',
         store=True,
@@ -65,7 +119,7 @@ class JobCard(models.Model):
     receipt_attachment = fields.Binary(string='Receipt', attachment=True)
     receipt_filename = fields.Char(string='Receipt Filename')
     excess_percentage = fields.Float(string='Excess (%)', help='Percentage paid by first customer')
-    excess_amount = fields.Float(
+    excess_amount = fields.Monetary(currency_field='currency_id',
         string='Excess AMT',
         compute='_compute_excess_amount',
         store=True,
@@ -73,7 +127,7 @@ class JobCard(models.Model):
     )
     excess_warning_reason = fields.Char(string='Excess Zero Reason', help='Reason why excess amount is 0')
     insurance_percentage = fields.Float(string='Insurance Percentage (%)', compute='_compute_insurance_pct', store=True)
-    insurance_amount = fields.Float(
+    insurance_amount = fields.Monetary(currency_field='currency_id',
         string='Insurance AMT',
         compute='_compute_insurance_amount',
         store=True,
@@ -81,7 +135,7 @@ class JobCard(models.Model):
     )
 
     betterment_percentage = fields.Float(string='Betterment (%)', default=0.0)
-    betterment_amount = fields.Float(
+    betterment_amount = fields.Monetary(currency_field='currency_id',
         string='Betterment AMT',
         compute='_compute_betterment_amount',
         store=True,
@@ -513,6 +567,8 @@ class JobCard(models.Model):
             if customer_invoice_lines:
                 customer_invoice = self.env['account.move'].create({
                     'move_type': 'out_invoice',
+                    'company_id': self.company_id.id,
+                    'currency_id': self.currency_id.id,
                     'partner_id': self.customer_id.partner_id.id,
                     'invoice_origin': self.name,
                     'invoice_line_ids': customer_invoice_lines,
@@ -532,6 +588,8 @@ class JobCard(models.Model):
             insurance_invoice = self.env['account.move'].create({
                 'move_type': 'out_invoice',
                 'is_insurance_invoice': True,
+                'company_id': self.company_id.id,
+                'currency_id': self.currency_id.id,
                 'partner_id': self.second_customer_id.partner_id.id,
                 'invoice_origin': self.name,
                 'invoice_line_ids': insurance_lines,
@@ -712,7 +770,7 @@ class JobCard(models.Model):
         ('completed', 'Completed'),
         ('delivered', 'Delivered')
     ], default='draft')
-    total_amount = fields.Float(string='Total Amount', compute='_compute_total', store=True)
+    total_amount = fields.Monetary(string='Total Amount', compute='_compute_total', store=True, currency_field='currency_id')
 
     payment_state = fields.Selection([
         ('not_paid', 'Not Paid'),
@@ -732,12 +790,12 @@ class JobCard(models.Model):
     authorization_link = fields.Char(string='Authorization Link')
 
 
-    amount_untaxed = fields.Float(string='Total Excl', compute='_compute_total', store=True)
-    amount_tax = fields.Float(string='Total Tax', compute='_compute_total', store=True)
-    amount_total = fields.Float(string='Total Incl', compute='_compute_total', store=True)
+    amount_untaxed = fields.Monetary(string='Total Excl', compute='_compute_total', store=True, currency_field='currency_id')
+    amount_tax = fields.Monetary(string='Total Tax', compute='_compute_total', store=True, currency_field='currency_id')
+    amount_total = fields.Monetary(string='Total Incl', compute='_compute_total', store=True, currency_field='currency_id')
 
     job_cost_count = fields.Integer(string='Job Cost', compute='_compute_job_cost_count')
-    job_cost_total = fields.Float(string='Job Cost Total', compute='_compute_job_cost_count')
+    job_cost_total = fields.Monetary(string='Job Cost Total', compute='_compute_job_cost_count', currency_field='currency_id')
 
     def _compute_job_cost_count(self):
         JobCost = self.env['job.cost']
@@ -1191,6 +1249,9 @@ class JobCard(models.Model):
 
                     # Customer SO (Excess / Betterment)
                     customer_so = self.env['sale.order'].create({
+                        'company_id': rec.company_id.id,
+                        'currency_id': rec.currency_id.id,
+                        'pricelist_id': rec._get_pricelist_for_currency(rec.currency_id, rec.company_id).id,
                         'partner_id': rec.customer_id.partner_id.id,
                         'user_id': self.env.user.id,
                         'origin': f"{rec.name} (Customer)",
@@ -1221,6 +1282,9 @@ class JobCard(models.Model):
 
                     # Insurance SO: full quote lines at 100% unit prices (multiplier 1.0)
                     insurance_so = self.env['sale.order'].create({
+                        'company_id': rec.company_id.id,
+                        'currency_id': rec.currency_id.id,
+                        'pricelist_id': rec._get_pricelist_for_currency(rec.currency_id, rec.company_id).id,
                         'partner_id': rec.second_customer_id.partner_id.id,
                         'user_id': customer_so.user_id.id or self.env.user.id,
                         'origin': f"{rec.name} (Insurance)",
@@ -1233,6 +1297,9 @@ class JobCard(models.Model):
                 else:
                     # Cash / Customer-only: single SO for customer, full quote lines
                     sale_order = self.env['sale.order'].create({
+                        'company_id': rec.company_id.id,
+                        'currency_id': rec.currency_id.id,
+                        'pricelist_id': rec._get_pricelist_for_currency(rec.currency_id, rec.company_id).id,
                         'partner_id': rec.customer_id.partner_id.id,
                         'user_id': self.env.user.id,
                         'origin': rec.name,
@@ -1436,7 +1503,24 @@ class JobCardLine(models.Model):
     product_id = fields.Many2one('product.product', string='Product')
     product_uom_id = fields.Many2one('uom.uom', string='Unit of Measure', default=lambda self: self.env.ref('uom.product_uom_unit', raise_if_not_found=False).id if self.env.ref('uom.product_uom_unit', raise_if_not_found=False) else False)
     quantity = fields.Float(string='Quantity', default=1.0)
-    unit_price = fields.Float(string='Unit Price')
+    currency_id = fields.Many2one(
+        'res.currency',
+        string='Currency',
+        compute='_compute_currency_id',
+        store=True,
+        readonly=True,
+    )
+    unit_price = fields.Monetary(string='Unit Price', currency_field='currency_id')
+
+    @api.depends('job_card_id.currency_id', 'parts_job_card_id.currency_id', 'consumables_job_card_id.currency_id',
+                 'repairs_job_card_id.currency_id', 'paint_job_card_id.currency_id', 'sundries_job_card_id.currency_id',
+                 'fittings_job_card_id.currency_id')
+    def _compute_currency_id(self):
+        for line in self:
+            parent = (line.job_card_id or line.parts_job_card_id or line.consumables_job_card_id or
+                      line.repairs_job_card_id or line.paint_job_card_id or line.sundries_job_card_id or
+                      line.fittings_job_card_id)
+            line.currency_id = parent.currency_id if parent else self.env.company.currency_id
     tax_ids = fields.Many2many('account.tax', string='Taxes')
     discount = fields.Float(string='Discount (%)', default=0.0)
 
@@ -1451,7 +1535,16 @@ class JobCardLine(models.Model):
     def _onchange_product_id(self):
         if self.product_id:
             self.name = self.product_id.display_name or self.product_id.name
-            self.unit_price = self.product_id.lst_price
+            parent = (self.job_card_id or self.parts_job_card_id or self.consumables_job_card_id or
+                      self.repairs_job_card_id or self.paint_job_card_id or self.sundries_job_card_id or
+                      self.fittings_job_card_id)
+            company = (parent and parent.company_id) or self.env.company
+            from_curr = company.currency_id
+            to_curr = (parent and parent.currency_id) or from_curr
+            price = self.product_id.lst_price
+            if from_curr and to_curr and from_curr != to_curr:
+                price = from_curr._convert(price, to_curr, company, fields.Date.today(), round=False)
+            self.unit_price = price
             if self.product_id.uom_id:
                 self.product_uom_id = self.product_id.uom_id
             self.tax_ids = self.product_id.taxes_id
@@ -1487,9 +1580,9 @@ class JobCardLine(models.Model):
                     line.price_total = subtotal
                     line.tax_amount = 0
 
-    price_subtotal = fields.Float(string='Subtotal', compute='_compute_amount', store=True)
-    tax_amount = fields.Float(string='Tax', compute='_compute_amount', store=True)
-    price_total = fields.Float(string='Amount', compute='_compute_amount', store=True)
+    price_subtotal = fields.Monetary(string='Subtotal', compute='_compute_amount', store=True, currency_field='currency_id')
+    tax_amount = fields.Monetary(string='Tax', compute='_compute_amount', store=True, currency_field='currency_id')
+    price_total = fields.Monetary(string='Amount', compute='_compute_amount', store=True, currency_field='currency_id')
     rate_2 = fields.Float(string='Rate 2', compute='_compute_rate_2', store=True)
 
     @api.depends('unit_price')

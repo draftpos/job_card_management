@@ -132,10 +132,10 @@
                                             <span t-field="line.product_uom_id.name"/>
                                         </td>
                                         <td class="text-end" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 14px 14px; font-size: 15px; color: #333; letter-spacing: 0.4px;">
-                                            $ <span t-esc="'{:.2f}'.format(line.unit_price)"/>
+                                            <t t-esc="doc.currency_id.symbol or '$'"/> <span t-esc="'{:.2f}'.format(line.unit_price)"/>
                                         </td>
                                         <td class="text-end o_price_total" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 14px 14px; font-size: 15px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.4px;">
-                                            $ <span t-esc="'{:.2f}'.format(line.price_total)"/>
+                                            <t t-esc="doc.currency_id.symbol or '$'"/> <span t-esc="'{:.2f}'.format(line.price_total)"/>
                                         </td>
                                     </tr>
                                 </t>
@@ -150,19 +150,19 @@
                                     <tr class="o_subtotal">
                                         <td style="border: none; padding: 10px 12px; font-size: 15px; color: #333; letter-spacing: 0.4px;">Total Excl</td>
                                         <td class="text-end" style="border: none; padding: 10px 12px; font-size: 15px; color: #333;">
-                                            $ <span t-esc="'{:.2f}'.format(doc.amount_untaxed)"/>
+                                            <t t-esc="doc.currency_id.symbol or '$'"/> <span t-esc="'{:.2f}'.format(doc.amount_untaxed)"/>
                                         </td>
                                     </tr>
                                     <tr class="o_taxes">
                                         <td style="border: none; padding: 10px 12px; font-size: 15px; color: #333; letter-spacing: 0.4px;">Total VAT</td>
                                         <td class="text-end" style="border: none; padding: 10px 12px; font-size: 15px; color: #333;">
-                                            $ <span t-esc="'{:.2f}'.format(doc.amount_tax)"/>
+                                            <t t-esc="doc.currency_id.symbol or '$'"/> <span t-esc="'{:.2f}'.format(doc.amount_tax)"/>
                                         </td>
                                     </tr>
                                     <tr class="o_total">
                                         <td style="border: none; padding: 12px 12px; font-size: 17px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.5px;"><strong>Total Incl</strong></td>
                                         <td class="text-end" style="border: none; padding: 12px 12px; font-size: 17px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.5px;">
-                                            <strong>$ <span t-esc="'{:.2f}'.format(doc.amount_total)"/></strong>
+                                            <strong><t t-esc="doc.currency_id.symbol or '$'"/> <span t-esc="'{:.2f}'.format(doc.amount_total)"/></strong>
                                         </td>
                                     </tr>
                                 </table>

@@ -294,19 +294,19 @@
                                     <tr class="o_subtotal">
                                         <td style="border: none; padding: 6px 8px; font-size: 13px; color: #333; letter-spacing: 0.3px;">Total Excl</td>
                                         <td class="text-end" style="border: none; padding: 6px 8px; font-size: 13px; color: #333;">
-                                            $ <span t-esc="'{:.2f}'.format(doc.amount_untaxed)"/>
+                                            <t t-esc="doc.currency_id.symbol or '$'"/> <span t-esc="'{:.2f}'.format(doc.amount_untaxed)"/>
                                         </td>
                                     </tr>
                                     <tr class="o_taxes">
                                         <td style="border: none; padding: 6px 8px; font-size: 13px; color: #333; letter-spacing: 0.3px;">Total VAT</td>
                                         <td class="text-end" style="border: none; padding: 6px 8px; font-size: 13px; color: #333;">
-                                            $ <span t-esc="'{:.2f}'.format(doc.amount_tax)"/>
+                                            <t t-esc="doc.currency_id.symbol or '$'"/> <span t-esc="'{:.2f}'.format(doc.amount_tax)"/>
                                         </td>
                                     </tr>
                                     <tr class="o_total">
                                         <td style="border: none; padding: 8px 8px; font-size: 15px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.4px;"><strong>Total Incl</strong></td>
                                         <td class="text-end" style="border: none; padding: 8px 8px; font-size: 15px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.4px;">
-                                            <strong>$ <span t-esc="'{:.2f}'.format(doc.amount_total)"/></strong>
+                                            <strong><t t-esc="doc.currency_id.symbol or '$'"/> <span t-esc="'{:.2f}'.format(doc.amount_total)"/></strong>
                                         </td>
                                     </tr>
                                 </table>
@@ -501,6 +501,10 @@
                             <field name="enable_betterment_setting" invisible="1"/>
                             <field name="name" readonly="1"/>
                             <field name="customer_id" readonly="state in ('approved', 'converted') and not is_adjusting"/>
+                            <field name="company_id" invisible="1"/>
+                            <field name="company_currency_id" invisible="1"/>
+                            <field name="currency_id" options="{'no_create': True, 'no_open': True}" readonly="state in ('approved', 'converted') and not is_adjusting"/>
+                            <field name="currency_rate" invisible="currency_id == company_currency_id" readonly="state in ('approved', 'converted') and not is_adjusting"/>
                             <field name="insurance_company_id" readonly="state in ('approved', 'converted') and not is_adjusting" context="{'default_customer_type': 'insurance'}"/>
                             <!-- Excess/Betterment/Insurance amount fields hidden at quotation level -->
                              <field name="excess_percentage" invisible="1"/>
@@ -723,6 +727,7 @@
                 <field name="create_uid" string="Created By"/>
                 <field name="vehicle_reg_number"/>
                 <field name="amount_total"/>
+                <field name="currency_id" optional="show"/>
                 <field name="create_uid" string="Sales Person"/>
                 <field name="state" widget="badge" decoration-muted="state == 'draft'" decoration-warning="state == 'submitted'" decoration-success="state == 'approved'" decoration-info="state == 'converted'"/>
             </list>

@@ -74,6 +74,10 @@
                             <field name="claims_number" invisible="not is_insurance" readonly="state in ('approved', 'in_progress', 'requisition_started', 'completed', 'delivered')"/>
                             <field name="estimate_id" readonly="1"/>
                             <field name="customer_id" readonly="state in ('completed', 'delivered')"/>
+                            <field name="company_id" invisible="1"/>
+                            <field name="company_currency_id" invisible="1"/>
+                            <field name="currency_id" options="{'no_create': True, 'no_open': True}" readonly="state in ('completed', 'delivered')"/>
+                            <field name="currency_rate" invisible="currency_id == company_currency_id" readonly="state in ('completed', 'delivered')"/>
                             <field name="vehicle_display" readonly="1"/>
                             <field name="vehicle_reg_number" readonly="1"/>
                             <field name="vehicle_model" readonly="1"/>
@@ -339,6 +343,7 @@
                 <field name="customer_id"/>
                 <field name="vehicle_id"/>
                 <field name="insurance_amount" string="Total Amount" widget="monetary" sum="Total"/>
+                <field name="currency_id" optional="show"/>
                 <field name="create_uid"/>
                 <field name="cash_receipt_ref" optional="show"/>
                 <field name="state" widget="badge" decoration-muted="state == 'draft'" decoration-info="state == 'approved'" decoration-primary="state == 'requisition_started'" decoration-warning="state == 'in_progress'" decoration-success="state == 'completed' or state == 'delivered'"/>

@@ -25,7 +25,7 @@
                             <td><a t-att-href="f'/my/estimates/{estimate.id}?access_token={estimate.access_token}'"><t t-esc="estimate.name"/></a></td>
                             <td><t t-esc="estimate.customer_id.name"/></td>
                             <td><t t-esc="estimate.vehicle_reg_number"/></td>
-                            <td class="text-end">$ <t t-esc="'{:.2f}'.format(estimate.amount_total)"/></td>
+                            <td class="text-end"><t t-esc="estimate.currency_id.symbol or '$'"/> <t t-esc="'{:.2f}'.format(estimate.amount_total)"/></td>
                             <td><span class="badge rounded-pill text-bg-info" t-esc="estimate.state"/></td>
                         </tr>
                     </t>
@@ -46,7 +46,7 @@
                 <!-- Sidebar -->
                 <div class="col-lg-4 col-xxl-3 d-print-none">
                     <h4 t-if="estimate.state == 'approved'" class="mb-2">Approved</h4>
-                    <h2 t-esc="'$ {:.2f}'.format(estimate.amount_total)" class="mb-0 text-break"/>
+                    <h2 class="mb-0 text-break"><t t-esc="estimate.currency_id.symbol or '$'"/> <t t-esc="'{:.2f}'.format(estimate.amount_total)"/></h2>
                     
                     <div class="d-flex flex-column gap-4 mt-3">
                         <div class="d-flex flex-column gap-2" id="estimate_sidebar_button">
@@ -205,9 +205,9 @@
                                                         <span> </span>
                                                         <t t-esc="line.product_uom_id.name"/>
                                                     </td>
-                                                    <td class="text-end d-none d-sm-table-cell">$ <t t-esc="'{:.2f}'.format(line.unit_price)"/></td>
-                                                    <td class="text-end d-none d-sm-table-cell">$ <t t-esc="'{:.2f}'.format(line.tax_amount)"/></td>
-                                                    <td class="text-end o_price_total">$ <t t-esc="'{:.2f}'.format(line.price_total)"/></td>
+                                                    <td class="text-end d-none d-sm-table-cell"><t t-esc="estimate.currency_id.symbol or '$'"/> <t t-esc="'{:.2f}'.format(line.unit_price)"/></td>
+                                                    <td class="text-end d-none d-sm-table-cell"><t t-esc="estimate.currency_id.symbol or '$'"/> <t t-esc="'{:.2f}'.format(line.tax_amount)"/></td>
+                                                    <td class="text-end o_price_total"><t t-esc="estimate.currency_id.symbol or '$'"/> <t t-esc="'{:.2f}'.format(line.price_total)"/></td>
                                                 </tr>
                                             </t>
                                         </tbody>
@@ -220,15 +220,15 @@
                                         <table class="table table-sm" name="estimate_totals_table">
                                             <tr class="o_subtotal">
                                                 <td>Total Excl</td>
-                                                <td class="text-end">$ <t t-esc="'{:.2f}'.format(estimate.amount_untaxed)"/></td>
+                                                <td class="text-end"><t t-esc="estimate.currency_id.symbol or '$'"/> <t t-esc="'{:.2f}'.format(estimate.amount_untaxed)"/></td>
                                             </tr>
                                             <tr class="o_taxes">
                                                 <td>Total VAT</td>
-                                                <td class="text-end">$ <t t-esc="'{:.2f}'.format(estimate.amount_tax)"/></td>
+                                                <td class="text-end"><t t-esc="estimate.currency_id.symbol or '$'"/> <t t-esc="'{:.2f}'.format(estimate.amount_tax)"/></td>
                                             </tr>
                                             <tr class="o_total">
                                                 <td><strong>Total Incl</strong></td>
-                                                <td class="text-end"><strong>$ <t t-esc="'{:.2f}'.format(estimate.amount_total)"/></strong></td>
+                                                <td class="text-end"><strong><t t-esc="estimate.currency_id.symbol or '$'"/> <t t-esc="'{:.2f}'.format(estimate.amount_total)"/></strong></td>
                                             </tr>
                                         </table>
                                     </div>

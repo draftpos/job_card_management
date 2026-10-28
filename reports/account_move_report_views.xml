@@ -108,16 +108,16 @@
                                         <span t-esc="'{:.2f}'.format(line.quantity)"/>
                                     </td>
                                     <td class="text-end" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 14px 14px; font-size: 15px; color: #333; letter-spacing: 0.4px;">
-                                        $ <span t-esc="'{:.2f}'.format((line.price_total / line.quantity) if line.quantity else 0.0)"/>
+                                        <t t-esc="o.currency_id.symbol or '$'"/> <span t-esc="'{:.2f}'.format((line.price_total / line.quantity) if line.quantity else 0.0)"/>
                                     </td>
                                     <td class="text-end" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 14px 14px; font-size: 15px; color: #333; letter-spacing: 0.4px;">
                                         <span t-esc="'{:.2f}'.format(line.discount)"/>%
                                     </td>
                                     <td class="text-end" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 14px 14px; font-size: 15px; color: #333; letter-spacing: 0.4px;">
-                                        $ <span t-esc="'{:.2f}'.format(line.price_total - line.price_subtotal)"/>
+                                        <t t-esc="o.currency_id.symbol or '$'"/> <span t-esc="'{:.2f}'.format(line.price_total - line.price_subtotal)"/>
                                     </td>
                                     <td class="text-end o_price_total" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 14px 14px; font-size: 15px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.4px;">
-                                        $ <span t-esc="'{:.2f}'.format(line.price_total)"/>
+                                        <t t-esc="o.currency_id.symbol or '$'"/> <span t-esc="'{:.2f}'.format(line.price_total)"/>
                                     </td>
                                 </tr>
                             </t>
@@ -150,25 +150,25 @@
                         <div class="col-6">
                             <table class="table table-sm table-borderless" style="border: none;">
                                 <tr class="o_subtotal">
-                                    <td style="border: none; padding: 6px 12px; font-size: 15px; color: #333;">Sub Total (Excl) USD</td>
+                                    <td style="border: none; padding: 6px 12px; font-size: 15px; color: #333;">Sub Total (Excl) <t t-esc="o.currency_id.name"/></td>
                                     <td class="text-end" style="border: none; padding: 6px 12px; font-size: 15px; color: #333;">
-                                        $ <span t-esc="'{:.2f}'.format(o.amount_untaxed)"/>
+                                        <t t-esc="o.currency_id.symbol or '$'"/> <span t-esc="'{:.2f}'.format(o.amount_untaxed)"/>
                                     </td>
                                 </tr>
                                 <tr class="o_taxes">
-                                    <td style="border: none; padding: 6px 12px; font-size: 15px; color: #333;">VAT Amount USD</td>
+                                    <td style="border: none; padding: 6px 12px; font-size: 15px; color: #333;">VAT Amount <t t-esc="o.currency_id.name"/></td>
                                     <td class="text-end" style="border: none; padding: 6px 12px; font-size: 15px; color: #333;">
-                                        $ <span t-esc="'{:.2f}'.format(o.amount_tax)"/>
+                                        <t t-esc="o.currency_id.symbol or '$'"/> <span t-esc="'{:.2f}'.format(o.amount_tax)"/>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td style="border: none; padding: 6px 12px; font-size: 15px; font-weight: bold; color: #1a1a2e;">Sub Total (Incl) USD</td>
+                                    <td style="border: none; padding: 6px 12px; font-size: 15px; font-weight: bold; color: #1a1a2e;">Sub Total (Incl) <t t-esc="o.currency_id.name"/></td>
                                     <td class="text-end" style="border: none; padding: 6px 12px; font-size: 15px; font-weight: bold; color: #1a1a2e;">
-                                        $ <span t-esc="'{:.2f}'.format(o.amount_total)"/>
+                                        <t t-esc="o.currency_id.symbol or '$'"/> <span t-esc="'{:.2f}'.format(o.amount_total)"/>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td style="border: none; padding: 6px 12px; font-size: 15px; color: #333;">Discount USD</td>
+                                    <td style="border: none; padding: 6px 12px; font-size: 15px; color: #333;">Discount <t t-esc="o.currency_id.name"/></td>
                                     <td class="text-end" style="border: none; padding: 6px 12px; font-size: 15px; color: #333;">
                                         <!-- Calculate total discount from lines -->
                                         $ <t t-set="total_discount" t-value="sum(l.price_unit * l.quantity * (l.discount / 100.0) for l in o.invoice_line_ids)"/>
@@ -176,9 +176,9 @@
                                     </td>
                                 </tr>
                                 <tr class="o_total" style="border-top: 1px solid #1a1a2e;">
-                                    <td style="border: none; padding: 12px 12px; font-size: 17px; font-weight: 700; color: #1a1a2e;"><strong>Invoice Total (Incl) USD</strong></td>
+                                    <td style="border: none; padding: 12px 12px; font-size: 17px; font-weight: 700; color: #1a1a2e;"><strong>Invoice Total (Incl) <t t-esc="o.currency_id.name"/></strong></td>
                                     <td class="text-end" style="border: none; padding: 12px 12px; font-size: 17px; font-weight: 700; color: #1a1a2e;">
-                                        <strong>$ <span t-esc="'{:.2f}'.format(o.amount_total)"/></strong>
+                                        <strong><t t-esc="o.currency_id.symbol or '$'"/> <span t-esc="'{:.2f}'.format(o.amount_total)"/></strong>
                                     </td>
                                 </tr>
                             </table>
