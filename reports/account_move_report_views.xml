@@ -101,22 +101,22 @@
                         <tbody class="invoice_tbody">
                             <t t-foreach="o.invoice_line_ids.filtered(lambda l: l.display_type not in ('line_section', 'line_note'))" t-as="line">
                                 <tr>
-                                    <td style="border: none; border-bottom: 1px solid #e0e0e0; padding: 14px 14px; font-size: 15px; color: #333; letter-spacing: 0.4px;">
+                                    <td style="border: none; border-bottom: 1px solid #e0e0e0; padding: 3px 6px; font-size: 11.5px; color: #333; line-height: 1.2;">
                                         <span t-field="line.name"/>
                                     </td>
-                                    <td class="text-end" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 14px 14px; font-size: 15px; color: #333; letter-spacing: 0.4px;">
+                                    <td class="text-end" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 3px 6px; font-size: 11.5px; color: #333; line-height: 1.2;">
                                         <span t-esc="'{:.2f}'.format(line.quantity)"/>
                                     </td>
-                                    <td class="text-end" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 14px 14px; font-size: 15px; color: #333; letter-spacing: 0.4px;">
+                                    <td class="text-end" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 3px 6px; font-size: 11.5px; color: #333; line-height: 1.2;">
                                         <t t-esc="o.currency_id.symbol or '$'"/> <span t-esc="'{:.2f}'.format((line.price_total / line.quantity) if line.quantity else 0.0)"/>
                                     </td>
-                                    <td class="text-end" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 14px 14px; font-size: 15px; color: #333; letter-spacing: 0.4px;">
+                                    <td class="text-end" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 3px 6px; font-size: 11.5px; color: #333; line-height: 1.2;">
                                         <span t-esc="'{:.2f}'.format(line.discount)"/>%
                                     </td>
-                                    <td class="text-end" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 14px 14px; font-size: 15px; color: #333; letter-spacing: 0.4px;">
+                                    <td class="text-end" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 3px 6px; font-size: 11.5px; color: #333; line-height: 1.2;">
                                         <t t-esc="o.currency_id.symbol or '$'"/> <span t-esc="'{:.2f}'.format(line.price_total - line.price_subtotal)"/>
                                     </td>
-                                    <td class="text-end o_price_total" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 14px 14px; font-size: 15px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.4px;">
+                                    <td class="text-end o_price_total" style="border: none; border-bottom: 1px solid #e0e0e0; padding: 3px 6px; font-size: 11.5px; font-weight: 700; color: #1a1a2e; line-height: 1.2;">
                                         <t t-esc="o.currency_id.symbol or '$'"/> <span t-esc="'{:.2f}'.format(line.price_total)"/>
                                     </td>
                                 </tr>
@@ -126,16 +126,16 @@
 
                     <!-- Totals -->
                     <!-- Footer Section -->
-                    <div class="row mt-4 mb-2" style="padding: 10px; page-break-inside: avoid;">
+                    <div class="row mt-2 mb-1" style="padding: 4px; page-break-inside: avoid;">
                         <!-- Signatures and Bank Details (Left/Center) -->
                         <div class="col-6">
-                            <div class="mb-4">
-                                <div style="margin-bottom: 10px;"><strong>Received by</strong> <span style="display:inline-block; width:200px; border-bottom: 1px dashed #333;"></span></div>
-                                <div style="margin-bottom: 10px;"><strong>Date</strong> <span style="display:inline-block; width:254px; border-bottom: 1px dashed #333;"></span></div>
-                                <div style="margin-bottom: 10px;"><strong>Signed</strong> <span style="display:inline-block; width:240px; border-bottom: 1px dashed #333;"></span></div>
+                            <div class="mb-2">
+                                <div style="margin-bottom: 4px;"><strong>Received by</strong> <span style="display:inline-block; width:200px; border-bottom: 1px dashed #333;"></span></div>
+                                <div style="margin-bottom: 4px;"><strong>Date</strong> <span style="display:inline-block; width:254px; border-bottom: 1px dashed #333;"></span></div>
+                                <div style="margin-bottom: 4px;"><strong>Signed</strong> <span style="display:inline-block; width:240px; border-bottom: 1px dashed #333;"></span></div>
                             </div>
                             
-                            <div class="row mt-4" style="font-size: 13px;">
+                            <div class="row mt-1" style="font-size: 11px;">
                                 <div class="col-6">
                                     <div t-if="res_company.hao_bank_name"><strong>Bank Name</strong> <span class="float-end" t-field="res_company.hao_bank_name"/></div>
                                     <div t-if="res_company.hao_bank_branch"><strong>Branch</strong> <span class="float-end" t-field="res_company.hao_bank_branch"/></div>
@@ -150,34 +150,34 @@
                         <div class="col-6">
                             <table class="table table-sm table-borderless" style="border: none;">
                                 <tr class="o_subtotal">
-                                    <td style="border: none; padding: 6px 12px; font-size: 15px; color: #333;">Sub Total (Excl) <t t-esc="o.currency_id.name"/></td>
-                                    <td class="text-end" style="border: none; padding: 6px 12px; font-size: 15px; color: #333;">
+                                    <td style="border: none; padding: 2px 6px; font-size: 11.5px; color: #333;">Sub Total (Excl) <t t-esc="o.currency_id.name"/></td>
+                                    <td class="text-end" style="border: none; padding: 2px 6px; font-size: 11.5px; color: #333;">
                                         <t t-esc="o.currency_id.symbol or '$'"/> <span t-esc="'{:.2f}'.format(o.amount_untaxed)"/>
                                     </td>
                                 </tr>
                                 <tr class="o_taxes">
-                                    <td style="border: none; padding: 6px 12px; font-size: 15px; color: #333;">VAT Amount <t t-esc="o.currency_id.name"/></td>
-                                    <td class="text-end" style="border: none; padding: 6px 12px; font-size: 15px; color: #333;">
+                                    <td style="border: none; padding: 2px 6px; font-size: 11.5px; color: #333;">VAT Amount <t t-esc="o.currency_id.name"/></td>
+                                    <td class="text-end" style="border: none; padding: 2px 6px; font-size: 11.5px; color: #333;">
                                         <t t-esc="o.currency_id.symbol or '$'"/> <span t-esc="'{:.2f}'.format(o.amount_tax)"/>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td style="border: none; padding: 6px 12px; font-size: 15px; font-weight: bold; color: #1a1a2e;">Sub Total (Incl) <t t-esc="o.currency_id.name"/></td>
-                                    <td class="text-end" style="border: none; padding: 6px 12px; font-size: 15px; font-weight: bold; color: #1a1a2e;">
+                                    <td style="border: none; padding: 2px 6px; font-size: 11.5px; font-weight: bold; color: #1a1a2e;">Sub Total (Incl) <t t-esc="o.currency_id.name"/></td>
+                                    <td class="text-end" style="border: none; padding: 2px 6px; font-size: 11.5px; font-weight: bold; color: #1a1a2e;">
                                         <t t-esc="o.currency_id.symbol or '$'"/> <span t-esc="'{:.2f}'.format(o.amount_total)"/>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td style="border: none; padding: 6px 12px; font-size: 15px; color: #333;">Discount <t t-esc="o.currency_id.name"/></td>
-                                    <td class="text-end" style="border: none; padding: 6px 12px; font-size: 15px; color: #333;">
+                                    <td style="border: none; padding: 2px 6px; font-size: 11.5px; color: #333;">Discount <t t-esc="o.currency_id.name"/></td>
+                                    <td class="text-end" style="border: none; padding: 2px 6px; font-size: 11.5px; color: #333;">
                                         <!-- Calculate total discount from lines -->
                                         $ <t t-set="total_discount" t-value="sum(l.price_unit * l.quantity * (l.discount / 100.0) for l in o.invoice_line_ids)"/>
                                         <span t-esc="'{:.2f}'.format(total_discount)"/>
                                     </td>
                                 </tr>
                                 <tr class="o_total" style="border-top: 1px solid #1a1a2e;">
-                                    <td style="border: none; padding: 12px 12px; font-size: 17px; font-weight: 700; color: #1a1a2e;"><strong>Invoice Total (Incl) <t t-esc="o.currency_id.name"/></strong></td>
-                                    <td class="text-end" style="border: none; padding: 12px 12px; font-size: 17px; font-weight: 700; color: #1a1a2e;">
+                                    <td style="border: none; padding: 3px 6px; font-size: 13px; font-weight: 700; color: #1a1a2e;"><strong>Invoice Total (Incl) <t t-esc="o.currency_id.name"/></strong></td>
+                                    <td class="text-end" style="border: none; padding: 3px 6px; font-size: 13px; font-weight: 700; color: #1a1a2e;">
                                         <strong><t t-esc="o.currency_id.symbol or '$'"/> <span t-esc="'{:.2f}'.format(o.amount_total)"/></strong>
                                     </td>
                                 </tr>
@@ -199,40 +199,40 @@
                     <t t-set="all_inv_banks" t-value="o.company_id.hao_bank_detail_ids.filtered(lambda b: b.print_on_invoice) if o.company_id.hao_bank_detail_ids else []"/>
                     <t t-set="matched_inv_banks" t-value="all_inv_banks.filtered(lambda b: b.currency_id == o.currency_id) if (all_inv_banks and o.currency_id) else all_inv_banks"/>
                     <t t-set="inv_bank_details" t-value="matched_inv_banks if matched_inv_banks else (all_inv_banks.filtered(lambda b: not b.currency_id) if all_inv_banks else [])"/>
-                    <div t-if="o.company_id.hao_multi_bank and inv_bank_details" class="row mt-4" style="page-break-inside: avoid;">
+                    <div t-if="o.company_id.hao_multi_bank and inv_bank_details" class="row mt-2" style="page-break-inside: avoid;">
                         <div class="col-12" style="color: #444;">
-                            <h5 style="color: #1a1a2e; font-weight: bold; border-bottom: 2px solid #1a1a2e; padding-bottom: 5px;">Bank Details</h5>
-                            <table class="table table-sm table-borderless mt-2" style="font-size: 13px; color: #555; margin-bottom: 0;">
+                            <strong style="font-size: 11px; color: #1a1a2e; text-transform: uppercase; display: block; border-bottom: 1px solid #1a1a2e; padding-bottom: 2px; margin-bottom: 4px;">Bank Details</strong>
+                            <table class="table table-sm table-borderless mt-2" style="font-size: 10px; color: #555; margin-bottom: 0;">
                                 <thead>
                                     <tr style="border-bottom: 1px solid #e2e8f0; font-weight: bold; color: #111827;">
-                                        <th style="padding: 4px 6px;">Account Name</th>
-                                        <th style="padding: 4px 6px;">Bank</th>
-                                        <th style="padding: 4px 6px;">Account No</th>
-                                        <th style="padding: 4px 6px;">Branch</th>
-                                        <th style="padding: 4px 6px;">Branch Code</th>
-                                        <th style="padding: 4px 6px;">Swift Code</th>
-                                        <th style="padding: 4px 6px;">Currency</th>
+                                        <th style="padding: 2px 4px;">Account Name</th>
+                                        <th style="padding: 2px 4px;">Bank</th>
+                                        <th style="padding: 2px 4px;">Account No</th>
+                                        <th style="padding: 2px 4px;">Branch</th>
+                                        <th style="padding: 2px 4px;">Branch Code</th>
+                                        <th style="padding: 2px 4px;">Swift Code</th>
+                                        <th style="padding: 2px 4px;">Currency</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <t t-foreach="inv_bank_details" t-as="bank">
                                         <tr>
-                                            <td style="padding: 4px 6px;"><span t-field="bank.account_name"/></td>
-                                            <td style="padding: 4px 6px;"><span t-field="bank.bank_name"/></td>
-                                            <td style="padding: 4px 6px;"><span t-field="bank.account_no"/></td>
-                                            <td style="padding: 4px 6px;"><span t-field="bank.branch"/></td>
-                                            <td style="padding: 4px 6px;"><span t-field="bank.branch_code"/></td>
-                                            <td style="padding: 4px 6px;"><span t-field="bank.swift_code"/></td>
-                                            <td style="padding: 4px 6px;"><span t-field="bank.currency_id.name"/></td>
+                                            <td style="padding: 2px 4px;"><span t-field="bank.account_name"/></td>
+                                            <td style="padding: 2px 4px;"><span t-field="bank.bank_name"/></td>
+                                            <td style="padding: 2px 4px;"><span t-field="bank.account_no"/></td>
+                                            <td style="padding: 2px 4px;"><span t-field="bank.branch"/></td>
+                                            <td style="padding: 2px 4px;"><span t-field="bank.branch_code"/></td>
+                                            <td style="padding: 2px 4px;"><span t-field="bank.swift_code"/></td>
+                                            <td style="padding: 2px 4px;"><span t-field="bank.currency_id.name"/></td>
                                         </tr>
                                     </t>
                                 </tbody>
                             </table>
                         </div>
                     </div>
-                    <div t-if="not o.company_id.hao_multi_bank and o.company_id.hao_bank_name and (not o.company_id.hao_bank_currency_id or o.company_id.hao_bank_currency_id == o.currency_id)" class="row mt-4" style="page-break-inside: avoid;">
+                    <div t-if="not o.company_id.hao_multi_bank and o.company_id.hao_bank_name and (not o.company_id.hao_bank_currency_id or o.company_id.hao_bank_currency_id == o.currency_id)" class="row mt-2" style="page-break-inside: avoid;">
                         <div class="col-12" style="color: #444;">
-                            <h5 style="color: #1a1a2e; font-weight: bold; border-bottom: 2px solid #1a1a2e; padding-bottom: 5px;">Bank Details</h5>
+                            <strong style="font-size: 11px; color: #1a1a2e; text-transform: uppercase; display: block; border-bottom: 1px solid #1a1a2e; padding-bottom: 2px; margin-bottom: 4px;">Bank Details</strong>
                             <div style="font-size: 13px; color: #555; padding: 10px 0;">
                                 <strong style="color: #111827;">Bank:</strong> <span t-field="o.company_id.hao_bank_name"/> | 
                                 <strong style="color: #111827;">Account Name:</strong> <span t-field="o.company_id.hao_bank_account_name"/> | 
