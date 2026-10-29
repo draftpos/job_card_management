@@ -6,13 +6,14 @@
         <field name="priority">1</field>
         <field name="arch" type="xml">
             <list editable="bottom">
+                <field name="parent_id" column_invisible="True"/>
                 <field name="account_name"/>
                 <field name="bank_name"/>
                 <field name="account_no"/>
                 <field name="branch"/>
                 <field name="branch_code"/>
                 <field name="swift_code"/>
-                <field name="currency_id"/>
+                <field name="currency_id" readonly="False"/>
                 <field name="print_on_invoice"/>
             </list>
         </field>
@@ -26,13 +27,14 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='hao_bank_detail_ids']" position="inside">
                 <list editable="bottom">
+                    <field name="parent_id" column_invisible="True"/>
                     <field name="account_name"/>
                     <field name="bank_name"/>
                     <field name="account_no"/>
                     <field name="branch"/>
                     <field name="branch_code"/>
                     <field name="swift_code"/>
-                    <field name="currency_id"/>
+                    <field name="currency_id" readonly="False"/>
                     <field name="print_on_invoice"/>
                 </list>
             </xpath>
