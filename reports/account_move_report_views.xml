@@ -230,7 +230,7 @@
                             </table>
                         </div>
                     </div>
-                    <div t-if="not o.company_id.hao_multi_bank and o.company_id.hao_bank_name and (not getattr(o.company_id, 'hao_bank_currency_id', False) or o.company_id.hao_bank_currency_id == o.currency_id)" class="row mt-4" style="page-break-inside: avoid;">
+                    <div t-if="not o.company_id.hao_multi_bank and o.company_id.hao_bank_name and (not o.company_id.hao_bank_currency_id or o.company_id.hao_bank_currency_id == o.currency_id)" class="row mt-4" style="page-break-inside: avoid;">
                         <div class="col-12" style="color: #444;">
                             <h5 style="color: #1a1a2e; font-weight: bold; border-bottom: 2px solid #1a1a2e; padding-bottom: 5px;">Bank Details</h5>
                             <div style="font-size: 13px; color: #555; padding: 10px 0;">

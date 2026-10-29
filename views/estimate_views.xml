@@ -374,7 +374,7 @@
 
                         <!-- BANK DETAILS -->
                         <t t-set="all_doc_banks" t-value="res_company.hao_bank_detail_ids.filtered(lambda b: b.print_on_invoice) if res_company.hao_bank_detail_ids else []"/>
-                        <t t-set="matched_doc_banks" t-value="all_doc_banks.filtered(lambda b: b.currency_id == doc.currency_id) if (all_doc_banks and hasattr(doc, 'currency_id') and doc.currency_id) else all_doc_banks"/>
+                        <t t-set="matched_doc_banks" t-value="all_doc_banks.filtered(lambda b: b.currency_id == doc.currency_id) if (all_doc_banks and doc.currency_id) else all_doc_banks"/>
                         <t t-set="bank_details" t-value="matched_doc_banks if matched_doc_banks else (all_doc_banks.filtered(lambda b: not b.currency_id) if all_doc_banks else [])"/>
                         <div t-if="res_company.hao_multi_bank and bank_details" class="row mt-3" style="page-break-inside: avoid;">
                             <div class="col-12" style="color: #444;">
@@ -403,7 +403,7 @@
                                 </table>
                             </div>
                         </div>
-                        <div t-if="not res_company.hao_multi_bank and res_company.hao_bank_name and (not getattr(res_company, 'hao_bank_currency_id', False) or res_company.hao_bank_currency_id == doc.currency_id)" class="row mt-3" style="page-break-inside: avoid;">
+                        <div t-if="not res_company.hao_multi_bank and res_company.hao_bank_name and (not res_company.hao_bank_currency_id or res_company.hao_bank_currency_id == doc.currency_id)" class="row mt-3" style="page-break-inside: avoid;">
                             <div class="col-12" style="color: #444;">
                                 <strong style="font-size: 11.5px; color: #1a1a2e; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px;">Bank Details:</strong>
                                 <div style="font-size: 10px; color: #374151; padding: 2px 4px;">
