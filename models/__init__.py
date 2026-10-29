@@ -2,6 +2,7 @@ from . import backend_navigation
 from . import customer
 from . import vehicle_catalog
 from . import res_config_settings
+from . import res_company
 from . import vehicle
 from . import estimate
 from . import job_card

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_hao_bank_detail_list_jobcard" model="ir.ui.view">
+        <field name="name">hao.bank.detail.list.jobcard</field>
+        <field name="model">hao.bank.detail</field>
+        <field name="priority">1</field>
+        <field name="arch" type="xml">
+            <list editable="bottom">
+                <field name="account_name"/>
+                <field name="bank_name"/>
+                <field name="account_no"/>
+                <field name="branch"/>
+                <field name="branch_code"/>
+                <field name="swift_code"/>
+                <field name="currency_id"/>
+                <field name="print_on_invoice"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_company_form_inherit_jobcard_banking" model="ir.ui.view">
+        <field name="name">res.company.form.inherit.jobcard.banking</field>
+        <field name="model">res.company</field>
+        <field name="inherit_id" ref="base.view_company_form"/>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='hao_bank_detail_ids']" position="inside">
+                <list editable="bottom">
+                    <field name="account_name"/>
+                    <field name="bank_name"/>
+                    <field name="account_no"/>
+                    <field name="branch"/>
+                    <field name="branch_code"/>
+                    <field name="swift_code"/>
+                    <field name="currency_id"/>
+                    <field name="print_on_invoice"/>
+                </list>
+            </xpath>
+            <xpath expr="//field[@name='hao_bank_swift_code']" position="after">
+                <field name="hao_bank_currency_id"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

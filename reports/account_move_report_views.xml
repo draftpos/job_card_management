@@ -196,7 +196,10 @@
                     </div>
 
                     <!-- BANK DETAILS -->
-                    <div t-if="o.company_id.hao_multi_bank and o.company_id.hao_bank_detail_ids.filtered(lambda b: b.print_on_invoice)" class="row mt-4" style="page-break-inside: avoid;">
+                    <t t-set="all_inv_banks" t-value="o.company_id.hao_bank_detail_ids.filtered(lambda b: b.print_on_invoice) if o.company_id.hao_bank_detail_ids else []"/>
+                    <t t-set="matched_inv_banks" t-value="all_inv_banks.filtered(lambda b: b.currency_id == o.currency_id) if (all_inv_banks and o.currency_id) else all_inv_banks"/>
+                    <t t-set="inv_bank_details" t-value="matched_inv_banks if matched_inv_banks else (all_inv_banks.filtered(lambda b: not b.currency_id) if all_inv_banks else [])"/>
+                    <div t-if="o.company_id.hao_multi_bank and inv_bank_details" class="row mt-4" style="page-break-inside: avoid;">
                         <div class="col-12" style="color: #444;">
                             <h5 style="color: #1a1a2e; font-weight: bold; border-bottom: 2px solid #1a1a2e; padding-bottom: 5px;">Bank Details</h5>
                             <table class="table table-sm table-borderless mt-2" style="font-size: 13px; color: #555; margin-bottom: 0;">
@@ -208,10 +211,11 @@
                                         <th style="padding: 4px 6px;">Branch</th>
                                         <th style="padding: 4px 6px;">Branch Code</th>
                                         <th style="padding: 4px 6px;">Swift Code</th>
+                                        <th style="padding: 4px 6px;">Currency</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <t t-foreach="o.company_id.hao_bank_detail_ids.filtered(lambda b: b.print_on_invoice)" t-as="bank">
+                                    <t t-foreach="inv_bank_details" t-as="bank">
                                         <tr>
                                             <td style="padding: 4px 6px;"><span t-field="bank.account_name"/></td>
                                             <td style="padding: 4px 6px;"><span t-field="bank.bank_name"/></td>
@@ -219,13 +223,14 @@
                                             <td style="padding: 4px 6px;"><span t-field="bank.branch"/></td>
                                             <td style="padding: 4px 6px;"><span t-field="bank.branch_code"/></td>
                                             <td style="padding: 4px 6px;"><span t-field="bank.swift_code"/></td>
+                                            <td style="padding: 4px 6px;"><span t-field="bank.currency_id.name"/></td>
                                         </tr>
                                     </t>
                                 </tbody>
                             </table>
                         </div>
                     </div>
-                    <div t-if="not o.company_id.hao_multi_bank and o.company_id.hao_bank_name" class="row mt-4" style="page-break-inside: avoid;">
+                    <div t-if="not o.company_id.hao_multi_bank and o.company_id.hao_bank_name and (not getattr(o.company_id, 'hao_bank_currency_id', False) or o.company_id.hao_bank_currency_id == o.currency_id)" class="row mt-4" style="page-break-inside: avoid;">
                         <div class="col-12" style="color: #444;">
                             <h5 style="color: #1a1a2e; font-weight: bold; border-bottom: 2px solid #1a1a2e; padding-bottom: 5px;">Bank Details</h5>
                             <div style="font-size: 13px; color: #555; padding: 10px 0;">
